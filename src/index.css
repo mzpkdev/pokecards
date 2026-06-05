@@ -155,19 +155,28 @@ body {
 }
 
 /* TEXTURE LAYER — a faint friendly dot-grid PLUS a whisper-quiet iridescent
-   holo shimmer, both masked to the SAME top-biased fade so they're strongest at
-   the top/edges and dissolve to clean cream behind the card grid.
+   holo shimmer, masked so it's strongest at the top/edges and eases off only at
+   the very bottom edge — so the shimmer now carries THROUGH the grid region and
+   shows behind/between the floating card tiles (the grid chain itself is fully
+   transparent down to the body cream, so this fixed layer reads behind it).
    ----------------------------------------------------------------------------
    ROUND-2 (#1): the user wanted a delicate holo-shimmer texture on the bright
    page background. It is deliberately VERY low-contrast (low-alpha iridescent
    bands at ~0.05–0.07 over the cream) so it does NOT compete with the card holo
    (the signature effect): the cards' shine/glare blend against the card ART, not
-   this faint backdrop band, and this layer fades out (via the mask) exactly where
-   the grid sits — so behind the tiles the background reads as clean cream and the
-   card holo keeps popping. The shimmer is STATIC (no animation) by design, which
-   also satisfies prefers-reduced-motion (nothing to disable here). The dot grid
-   is the LAST background layer (painted under the shimmer's soft bands).
-   ========================================================================== */
+   this faint backdrop band, so even running behind the grid it can't gut the
+   foil. The shimmer is STATIC (no animation) by design, which also satisfies
+   prefers-reduced-motion (nothing to disable here). The dot grid is the LAST
+   background layer (painted under the shimmer's soft bands).
+   ----------------------------------------------------------------------------
+   ROUND-3: the mask previously fell off by ~88% of a top-anchored radial, which
+   dissolved the shimmer to flat cream EXACTLY where the grid starts (~y=262 of a
+   900px viewport) — so the cream+shimmer page background was effectively hidden
+   behind the cards. The mask is now a gentle top→bottom fade that stays near-full
+   across the whole grid and only tapers in the last stretch, so the cream +
+   shimmer is visible behind the floating tiles while still easing out at the
+   bottom edge so it never reads as a hard band. */
+/* ========================================================================== */
 .app-bg::after {
   content: '';
   position: fixed;
@@ -202,13 +211,21 @@ body {
     100% 0%,
     -1px -1px;
   background-repeat: repeat, repeat, repeat;
-  /* Shared fade: opaque at the top, gone by ~88% down — so the texture is
-     strongest at the top/edges and clean behind the grid below. */
-  mask-image: radial-gradient(130% 100% at 50% 0%, #000 30%, transparent 88%);
-  -webkit-mask-image: radial-gradient(
-    130% 100% at 50% 0%,
-    #000 30%,
-    transparent 88%
+  /* Gentle top→bottom fade: full at the top, still ~85% across the grid, easing
+     to 0 only at the very bottom edge. Keeps the shimmer visible BEHIND the
+     floating tiles (the page cream + shimmer shows through the transparent grid)
+     while tapering at the bottom so it never reads as a hard band. */
+  mask-image: linear-gradient(
+    180deg,
+    #000 0%,
+    rgba(0, 0, 0, 0.85) 70%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    #000 0%,
+    rgba(0, 0, 0, 0.85) 70%,
+    transparent 100%
   );
   pointer-events: none;
 }
@@ -427,14 +444,6 @@ body {
   flex-direction: column;
   gap: 0.55rem;
   padding: 0.7rem 1.5rem 0.85rem;
-  /* No bottom border — a soft, longer cream→transparent fade replaces the hard
-     seam so the band dissolves into the atmosphere below. */
-  background: linear-gradient(
-    180deg,
-    var(--surface-2) 0%,
-    rgba(255, 243, 214, 0.55) 55%,
-    rgba(255, 243, 214, 0) 100%
-  );
 }
 
 .filter-bar-row {
@@ -1296,7 +1305,14 @@ body {
   .chip-link,
   .chip-evolve,
   .chip-similar,
-  .printing-row {
+  .printing-row,
+  .tab-badge,
+  .collection-export-btn,
+  .collection-step-btn,
+  .collection-remove-btn,
+  .detail-collect-add,
+  .detail-collect-step,
+  .detail-collect-remove {
     transition: none !important;
     transform: none !important;
   }
@@ -2497,4 +2513,439 @@ body {
   .pc-card--lightbox {
     animation: none !important;
   }
+}
+
+/* ============================================================================
+   COLLECTION FEATURE — "Your Collection" tab badge, the collection view header
+   (title + count + Export), per-tile quantity/remove controls overlaid on the
+   collection grid, and the detail page's card-level add/quantity/remove block.
+   All reuse the existing brand tokens (sky/sun/coral, display font, pill radii,
+   soft shadows) + the round-2 interaction language (scale on hover, no translate).
+   ========================================================================== */
+
+/* --- Collection tab badge -------------------------------------------------- */
+/* The collection tab carries the badge inline, so it lays out as a flex row. */
+.tab--collection {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* A small count pill on the tab. Coral so it pops against the (sky) active tab
+   and the (white) idle tab alike; ink border keeps the chunky-sticker look. */
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.4rem;
+  border-radius: var(--r-pill);
+  background: var(--coral);
+  border: 2px solid var(--coral-deep);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.72rem;
+  line-height: 1;
+  box-shadow: 0 2px 6px -2px rgba(226, 58, 89, 0.6);
+}
+
+/* On the ACTIVE collection tab the badge flips to white-on-ink so it stays
+   legible against the sky-blue active pill. */
+.tab.is-active .tab-badge {
+  background: #ffffff;
+  border-color: var(--sky-deep);
+  color: var(--coral-deep);
+}
+
+/* --- Collection view header (mirrors .related-head's compact band) --------- */
+.collection-head {
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0.8rem 1.25rem 0.7rem;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.collection-head-text {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.collection-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.3rem;
+  letter-spacing: 0.005em;
+  line-height: 1.15;
+  color: var(--text);
+  margin: 0;
+}
+
+.collection-subtitle {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  padding: 0.18rem 0.65rem;
+  border-radius: var(--r-pill);
+  background: var(--sun);
+  border: 2px solid var(--sun-deep);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: var(--text);
+  margin: 0;
+}
+
+.collection-head-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Export button — a sky primary action that matches the detail "add" CTA. The
+   feedback states (copied/failed) recolor it briefly via data-feedback. */
+.collection-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1.1rem;
+  border: 2px solid var(--sky-deep);
+  border-radius: var(--r-pill);
+  background: var(--sky);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: var(--shadow-sky);
+  outline: none;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .collection-export-btn:hover {
+    transform: scale(1.04);
+    box-shadow: 0 12px 24px -10px var(--accent-glow);
+  }
+}
+
+.collection-export-btn:focus-visible {
+  outline: 3px solid var(--coral);
+  outline-offset: 2px;
+}
+
+/* Copied! — flip to the mint success palette. */
+.collection-export-btn[data-feedback='copied'] {
+  background: var(--mint);
+  border-color: #0f9d73;
+  box-shadow: 0 12px 24px -10px rgba(24, 192, 143, 0.55);
+}
+
+/* Copy failed — coral so the failure reads clearly (fallback path also failed). */
+.collection-export-btn[data-feedback='failed'] {
+  background: var(--coral);
+  border-color: var(--coral-deep);
+  box-shadow: 0 12px 24px -10px rgba(226, 58, 89, 0.55);
+}
+
+/* --- Per-tile overlay wrapper + controls (collection grid) ----------------- */
+/* When CardGrid is given a renderOverlay, each item is wrapped in .pc-cell so
+   the controls can sit over the tile. It hugs the tile (the tile owns its own
+   size) and establishes the positioning context for the absolute controls. */
+.pc-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The quantity stepper + remove control, pinned to the bottom of the tile. They
+   float over the card art; pointer-events are re-enabled on the controls (the
+   wrapper passes through so the tile's holo pointer tracking still works on the
+   uncovered art). The JS also stops click propagation so a tap on a control
+   doesn't navigate via the tile's <Link>. */
+.collection-controls {
+  position: absolute;
+  left: 0.4rem;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.32rem;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.94);
+  border: 2px solid var(--border-ink);
+  box-shadow: var(--shadow-soft);
+  /* The art above stays interactive (holo); the controls themselves catch
+     pointer events (re-enabled here — the bar is opaque over the art). */
+}
+
+.collection-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+/* +/- buttons: round chunky sticker buttons. */
+.collection-step-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: var(--r-pill);
+  border: 2px solid var(--sky-deep);
+  background: var(--sky);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color 140ms ease,
+    transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .collection-step-btn:hover:not(:disabled) {
+    transform: scale(1.1);
+  }
+}
+
+.collection-step-btn:focus-visible {
+  outline: 3px solid var(--coral);
+  outline-offset: 1px;
+}
+
+.collection-step-btn:disabled {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.collection-qty {
+  min-width: 1.5rem;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+/* Remove control on a tile — compact coral text button. */
+.collection-remove-btn {
+  padding: 0.28rem 0.6rem;
+  border-radius: var(--r-pill);
+  border: 2px solid var(--coral-deep);
+  background: transparent;
+  color: var(--coral-deep);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.74rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .collection-remove-btn:hover {
+    background: var(--coral);
+    color: #ffffff;
+    transform: scale(1.05);
+  }
+}
+
+.collection-remove-btn:focus-visible {
+  outline: 3px solid var(--coral);
+  outline-offset: 1px;
+}
+
+/* --- Detail page card-level collection block ------------------------------- */
+.detail-collect {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0.4rem;
+}
+
+/* "Add to collection" — a sun-gold primary CTA so it stands apart from the sky
+   nav/back affordances and reads as the main action on the card. */
+.detail-collect-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  align-self: flex-start;
+  padding: 0.6rem 1.2rem;
+  border: 2px solid var(--sun-deep);
+  border-radius: var(--r-pill);
+  background: var(--sun);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: var(--shadow-sun);
+  outline: none;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .detail-collect-add:hover {
+    transform: scale(1.04);
+    box-shadow: 0 14px 28px -10px var(--gold-glow);
+  }
+}
+
+.detail-collect-add:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+}
+
+.detail-collect-add span[aria-hidden='true'] {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+/* Owned state: a small label + the stepper/remove row. */
+.detail-collect--owned {
+  padding: 0.7rem 0.85rem;
+  border: 2px solid var(--gold-line);
+  border-radius: var(--r-lg);
+  background: var(--gold-soft);
+}
+
+.detail-collect-owned-label {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--sun-deep);
+}
+
+.detail-collect-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.detail-collect-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 2px solid var(--border-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.detail-collect-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--r-pill);
+  border: 2px solid var(--sky-deep);
+  background: var(--sky);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color 140ms ease,
+    transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .detail-collect-step:hover:not(:disabled) {
+    transform: scale(1.08);
+  }
+}
+
+.detail-collect-step:focus-visible {
+  outline: 3px solid var(--coral);
+  outline-offset: 2px;
+}
+
+.detail-collect-step:disabled {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.detail-collect-qty {
+  min-width: 2rem;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.detail-collect-remove {
+  padding: 0.5rem 1rem;
+  border-radius: var(--r-pill);
+  border: 2px solid var(--coral-deep);
+  background: transparent;
+  color: var(--coral-deep);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .detail-collect-remove:hover {
+    background: var(--coral);
+    color: #ffffff;
+    transform: scale(1.04);
+  }
+}
+
+.detail-collect-remove:focus-visible {
+  outline: 3px solid var(--coral);
+  outline-offset: 2px;
 }

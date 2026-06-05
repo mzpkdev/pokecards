@@ -1,5 +1,47 @@
 import { useMemo } from 'react'
 import type { FilterableCard } from './data'
+import { isSwordShieldEnabled, SWORD_SHIELD_SERIES } from './featureFlags'
+
+// ----------------------------------------------------------------------------
+// Sword & Shield gating (UI layer). When the S&S feature flag is OFF we hide
+// S&S content WITHOUT touching the data layer:
+//   • PURELY-S&S cards (every entry of series[] is "Sword & Shield") are dropped
+//     from both the filtered results and facet-option derivation.
+//   • CROSS-SERIES cards (S&S plus ≥1 other series) are KEPT — they remain
+//     reachable via their non-S&S printings — so only purely-S&S cards vanish.
+//   • "Sword & Shield" is removed from the Series facet options (it would still
+//     leak in via the kept cross-series cards' series[]), and S&S-only set names
+//     are removed from the Set facet options.
+// All of this is derived from the card-level series[]/sets[] already on
+// FilterableCard plus the shared seriesOf classification — no data.ts edits.
+// ----------------------------------------------------------------------------
+
+// A card is "purely Sword & Shield" when it has at least one S&S printing AND
+// every series it spans is S&S. Such cards are hidden while the flag is off;
+// cross-series cards (this returns false for them) are kept.
+function isPurelySwordShield(card: FilterableCard): boolean {
+  return (
+    card.series.includes(SWORD_SHIELD_SERIES) &&
+    card.series.every((s) => s === SWORD_SHIELD_SERIES)
+  )
+}
+
+// The set names that belong exclusively to the Sword & Shield series, derived
+// purely from the data: the union of every set name carried by a purely-S&S
+// card. Because S&S set names never appear on a non-S&S printing (each set lives
+// in exactly one series), this union is exactly the S&S-only set list — so it's
+// safe to remove these from the Set facet options without dropping any set that
+// a surviving (non-S&S) printing legitimately uses. Cross-series cards still
+// list their S&S set names in sets[], so this denylist is what removes those.
+function swordShieldOnlySets(cards: FilterableCard[]): Set<string> {
+  const out = new Set<string>()
+  for (const card of cards) {
+    if (isPurelySwordShield(card)) {
+      for (const set of card.sets) out.add(set)
+    }
+  }
+  return out
+}
 
 // ============================================================================
 // useCardFilters — client-side search + faceted filtering for ONE category
@@ -120,7 +162,22 @@ export function useCardFilters(
   cards: FilterableCard[],
   params: URLSearchParams,
 ): UseCardFiltersResult {
-  // --- Derive distinct facet options from the loaded data --------------------
+  // Effective S&S flag, read PER-RENDER (window override → hardcoded default).
+  // Captured here and threaded through every memo's dependency list so a console
+  // flip of `window.IS_SWORD_N_SHIELD_ENABLED` followed by a re-render/navigation
+  // recomputes the visible cards/options/filtered pass with no rebuild.
+  const ssEnabled = isSwordShieldEnabled()
+
+  // The card universe the rest of the hook sees. With the flag OFF, purely-S&S
+  // cards are dropped up front so they're absent from BOTH the filtered results
+  // and the facet-option derivation; cross-series cards are retained. With the
+  // flag ON this is the original array reference (no filtering, no churn).
+  const visibleCards = useMemo<FilterableCard[]>(() => {
+    if (ssEnabled) return cards
+    return cards.filter((card) => !isPurelySwordShield(card))
+  }, [cards, ssEnabled])
+
+  // --- Derive distinct facet options from the (S&S-gated) data ---------------
   const options = useMemo<FacetOptions>(() => {
     const types = new Set<string>()
     const subtypes = new Set<string>()
@@ -128,11 +185,21 @@ export function useCardFilters(
     const series = new Set<string>()
     const roles = new Set<string>()
 
-    for (const card of cards) {
+    // With the flag off, suppress "Sword & Shield" from the Series facet (it
+    // would otherwise leak in via the kept cross-series cards) and the S&S-only
+    // set names from the Set facet (likewise carried by cross-series cards).
+    const hideSet = ssEnabled ? new Set<string>() : swordShieldOnlySets(cards)
+
+    for (const card of visibleCards) {
       for (const t of card.types) types.add(t)
       for (const s of card.subtypes) subtypes.add(s)
-      for (const s of card.sets) sets.add(s)
-      for (const s of card.series) series.add(s)
+      for (const s of card.sets) {
+        if (!hideSet.has(s)) sets.add(s)
+      }
+      for (const s of card.series) {
+        if (!ssEnabled && s === SWORD_SHIELD_SERIES) continue
+        series.add(s)
+      }
       for (const r of card.roles) roles.add(r)
     }
 
@@ -144,7 +211,7 @@ export function useCardFilters(
       series: [...series].sort(sortAlpha),
       roles: [...roles].sort(sortAlpha),
     }
-  }, [cards])
+  }, [cards, visibleCards, ssEnabled])
 
   // Parse the URL → normalized filters. Memoize on the serialized query STRING
   // (a primitive) so the parse re-runs only when the actual params change, never
@@ -170,11 +237,11 @@ export function useCardFilters(
       setsLower.length === 0 &&
       seriesLower.length === 0 &&
       rolesLower.length === 0
-    // Fast path: nothing selected → return the original array reference so
+    // Fast path: nothing selected → return the (S&S-gated) array reference so
     // VirtuosoGrid sees an unchanged `data` prop (no needless re-render churn).
-    if (noConstraints) return cards
+    if (noConstraints) return visibleCards
 
-    return cards.filter((card) => {
+    return visibleCards.filter((card) => {
       if (query && !card.search.includes(query)) return false
       if (!matchesFacet(card.types, typesLower)) return false
       if (!matchesFacet(card.subtypes, subtypesLower)) return false
@@ -183,7 +250,7 @@ export function useCardFilters(
       if (!matchesFacet(card.roles, rolesLower)) return false
       return true
     })
-  }, [cards, filters])
+  }, [visibleCards, filters])
 
   return {
     filtered,

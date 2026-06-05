@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AppHeader from './components/AppHeader'
 import GridLayout from './components/GridLayout'
 import CardDetailPage from './components/CardDetailPage'
+import CollectionView from './components/CollectionView'
 import RelatedGridView from './components/RelatedGridView'
 import RouteFade from './components/RouteFade'
 
@@ -29,6 +30,10 @@ export default function App() {
           <Route path="/pokemon" element={<GridLayout category="pokemon" />} />
           <Route path="/poketools" element={<GridLayout category="poketool" />} />
           <Route path="/specials" element={<GridLayout category="special" />} />
+          {/* "Your Collection" — a tabbed view (renders the same tab bar) showing
+              the user's collected cards through the shared FilterableGrid, with
+              per-tile quantity steppers + remove and a clipboard export. */}
+          <Route path="/collection" element={<CollectionView />} />
           {/* Standalone detail view: its OWN page (no tab bar). HashRouter handles
               #/card/:id on GitHub Pages with no server rewrite. */}
           <Route path="/card/:id" element={<CardDetailPage />} />

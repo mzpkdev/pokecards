@@ -103,19 +103,132 @@ const LETTER_PREFIX_NUMBER = /^[A-Z]{2,}\d+/
 // (e.g. cel25c-4_A, cel25c-15_A3).
 const ALT_ART_SUFFIX = /_[A-Z]\d*$/
 
+// ----------------------------------------------------------------------------
+// CURATED FULL-ART OVERRIDE
+// ----------------------------------------------------------------------------
+// The two per-printing rules above only catch full-arts that LOOK special from
+// their id/number alone (letter-prefix subsets, _A suffixes). They MISS "in
+// range" full-arts: a full-art trainer printed with an ordinary numeric `number`
+// inside a set that ALSO contains that card's normal print — e.g. Air Balloon's
+// full-art `swsh1-213` (the normal is `swsh1-156`), or the Mega Evolution-era
+// full-art trainers (me2 #116–122 vs their #85–93 normals). With no rarity
+// field on a printing, these are indistinguishable from a normal by rule alone.
+//
+// This is a hand-curated allow-list of the exact printing IDs that are full-arts
+// the heuristic misses. It was built by resolving a user-supplied list of card
+// names against the catalog and, for each, identifying the full-art printing(s)
+// — the higher-numbered print(s) within a set that also holds a lower normal
+// print (and/or a print beyond the set's base-set numeric range). Keying on
+// resolved printing IDs (not names) keeps it precise: it forces exactly these
+// printings special and nothing else, and a card's normal print stays its
+// default (printings[0]) because only the listed full-art ids are pushed last.
+//
+// To extend: add the full-art printing id(s) for a card; never add its normal
+// print (that would leave the card with no normal default).
+const CURATED_FULL_ART_IDS = new Set<string>([
+  // Air Balloon (normal swsh1-156)
+  'swsh1-213',
+  // Amarys (normal sv8pt5-93)
+  'sv8pt5-132',
+  'sv8pt5-170',
+  // AZ's Tranquility (normal me4-76)
+  'me4-106',
+  'me4-120',
+  // Battle Cage (normal me2-85)
+  'me2-116',
+  // Blowtorch (normal me2-86)
+  'me2-117',
+  // Buddy-Buddy Poffin (normals me1-167, me2pt5-184, sv5-144, sv8pt5-101)
+  'sv6-223',
+  // Cheren (normal rsv10pt5-81)
+  'me2pt5-258',
+  // Clive (normal sv4pt5-78)
+  'sv4pt5-227',
+  'sv4pt5-236',
+  // Collapsed Stadium (normal swsh9-137)
+  'swsh11-215',
+  // Dawn (normal me2-87)
+  'me2-118',
+  'me2-129',
+  // Elesa's Sparkle (normals swsh12pt5-147, swsh8-233)
+  'swsh8-260',
+  'swsh8-275',
+  // Emma (normal me4-77)
+  'me4-107',
+  // Energy Retrieval (normals rsv10pt5-82, sv1-171, swsh12pt5-127, swsh1-160)
+  'me4-108',
+  // Fennel (normal zsv10pt5-82)
+  'zsv10pt5-162',
+  // Firebreather (normal me2-89)
+  'me2-119',
+  // Grimsley's Move (normal me2-90)
+  'me2-120',
+  // Harlequin (normal rsv10pt5-83)
+  'rsv10pt5-163',
+  // Hilda (normal rsv10pt5-84)
+  'rsv10pt5-164',
+  'rsv10pt5-171',
+  // Jacinthe (normal me3-75)
+  'me3-110',
+  'me3-122',
+  // Jamming Tower (normal sv6-153)
+  'me2pt5-261',
+  'sv10-243',
+  // Levincia (normal sv9-150)
+  'sv10-244',
+  // Lumiose City (normal me3-77)
+  'me3-111',
+  // N's Plan (normal zsv10pt5-83)
+  'zsv10pt5-163',
+  'zsv10pt5-170',
+  // Naveen (normal me3-79)
+  'me3-112',
+  // Night Stretcher (normals me1-173, me2pt5-196, sv6pt5-61)
+  'sv8-251',
+  // Paldean Student (normals sv4pt5-85, sv4pt5-86)
+  'sv4pt5-230',
+  'sv4pt5-231',
+  // Path to the Peak (normal swsh6-148)
+  'swsh10-213',
+  // Philippe — user-supplied "Phillipe" (likely typo) (normal me4-79)
+  'me4-110',
+  // Prism Tower (normal me4-80)
+  'me4-111',
+  // Punk Helmet (normal me2-92)
+  'me2-121',
+  // Rosa's Encouragement (normal me3-84)
+  'me3-114',
+  'me3-123',
+  // Roxie's Performance (normal me4-81)
+  'me4-112',
+  'me4-121',
+  // Sacred Ash (normal sv10-168)
+  'me3-115',
+  // Sacred Charm (normal me2-93)
+  'me2-122',
+  // Special Red Card (normal me4-82)
+  'me4-113',
+  // Tarragon — user-supplied "Terragon" (likely typo) (normal me3-85)
+  'me3-116',
+])
+
 /**
  * Classifies a single printing as "special" (full-art / alt-art / gallery
  * variant) using a no-field, purely per-printing heuristic. A printing is
- * special if EITHER of:
- *   1. its `number` has a letter prefix (SV###/TG###/GG### subset prints), OR
- *   2. its `id` ends in an alt-art suffix (_A, _A1, …).
+ * special if ANY of:
+ *   1. its `id` is in the curated full-art allow-list (in-range full-arts the
+ *      letter/suffix rules can't see — see CURATED_FULL_ART_IDS), OR
+ *   2. its `number` has a letter prefix (SV###/TG###/GG### subset prints), OR
+ *   3. its `id` ends in an alt-art suffix (_A, _A1, …).
  *
- * Both rules look only at the printing itself (no cross-set data needed). With
- * no rarity field, a full-art/secret printed INSIDE a set's dense numeric range
- * (e.g. Sword & Shield 195/211) is indistinguishable from a normal and stays
- * classified as normal.
+ * Rules 2–3 look only at the printing itself (no cross-set data needed); rule 1
+ * is a static set lookup. With no rarity field, a full-art/secret printed INSIDE
+ * a set's dense numeric range (e.g. Sword & Shield 195/211) is indistinguishable
+ * from a normal by rule alone — the curated list (rule 1) backfills the specific
+ * ones we know about.
  */
 export function isSpecialPrinting(printing: Printing): boolean {
+  if (CURATED_FULL_ART_IDS.has(printing.id)) return true
   if (LETTER_PREFIX_NUMBER.test(printing.number)) return true
   if (ALT_ART_SUFFIX.test(printing.id)) return true
   return false

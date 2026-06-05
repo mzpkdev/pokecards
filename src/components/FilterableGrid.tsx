@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react'
+import type { ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import CardGrid from './CardGrid'
 import type { LoadState } from './CardGrid'
@@ -45,12 +46,21 @@ type FilterableGridProps = {
   // so the no-data branch never shows; a filtered-to-zero set shows the
   // category-agnostic "No matches" instead.
   categoryHint: CardCategory
+  // OPTIONAL per-tile overlay, forwarded to CardGrid (additive — defaults to
+  // none). The collection view uses it to lay quantity steppers + a remove
+  // control over each card. Tabs/related views omit it and render unchanged.
+  renderOverlay?: (card: PokemonCard) => ReactNode
+  // OPTIONAL no-data empty-state override, forwarded to CardGrid (e.g. the
+  // collection view's "your collection is empty" state).
+  emptyState?: ReactNode
 }
 
 export default function FilterableGrid({
   cards,
   state,
   categoryHint,
+  renderOverlay,
+  emptyState,
 }: FilterableGridProps) {
   // URL-driven filter state (see header). replace:true so typing/toggling
   // doesn't spam the history stack.
@@ -99,6 +109,8 @@ export default function FilterableGrid({
           cards={tiles}
           state={state}
           filteredEmpty={filteredEmpty}
+          renderOverlay={renderOverlay}
+          emptyState={emptyState}
         />
       </main>
     </>

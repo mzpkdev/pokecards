@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getCardDetail, resolveSimilar } from '../cardDetails'
 import type { SimilarLink } from '../cardDetails'
 import { seriesOf } from '../data'
+import { isSwordShieldEnabled, SWORD_SHIELD_SERIES } from '../featureFlags'
 import { energyIcon } from '../energyIcons'
 import { formatRoleLabel } from '../roleLabel'
+import { collectionKeyForDetail, useCollection } from '../useCollection'
 import type { CardDetail } from '../types'
 import CardLightbox from './CardLightbox'
 
@@ -63,6 +65,80 @@ function EnergyPip({ type }: { type: string }) {
       title={type}
       alt={type}
     />
+  )
+}
+
+// CARD-LEVEL collection controls for the detail page. The card is keyed on its
+// representative printing id (collectionKeyForDetail → data.ts's normals-first
+// sort, first printing) — the SAME key the grid/collection view use — so adding
+// here from ANY printing maps to one canonical entry (never the active printing,
+// never the card name). When the card isn't collected it's a single "Add to
+// collection" button; once collected it becomes a quantity stepper (+/−, min 1)
+// plus a Remove control. Styled with the brand chips/buttons to match the skin.
+function CollectionActions({ card }: { card: CardDetail }) {
+  const { quantityOf, addKey, setQuantity, remove } = useCollection()
+  const cardKey = collectionKeyForDetail(card)
+  const qty = quantityOf(cardKey)
+
+  // A card with no printings has no stable key — it can't be collected. Real
+  // records always have ≥1 printing; this only guards a malformed record so the
+  // button never adds an empty key.
+  if (!cardKey) return null
+
+  if (qty < 1) {
+    return (
+      <div className="detail-collect">
+        <button
+          type="button"
+          className="detail-collect-add"
+          onClick={() => addKey(cardKey)}
+        >
+          <span aria-hidden="true">＋</span> Add to collection
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="detail-collect detail-collect--owned">
+      <span className="detail-collect-owned-label">In your collection</span>
+      <div className="detail-collect-row">
+        <div
+          className="detail-collect-stepper"
+          role="group"
+          aria-label={`Quantity of ${card.name}`}
+        >
+          <button
+            type="button"
+            className="detail-collect-step"
+            disabled={qty <= 1}
+            aria-label={`Decrease quantity of ${card.name}`}
+            onClick={() => setQuantity(cardKey, qty - 1)}
+          >
+            −
+          </button>
+          <span className="detail-collect-qty" aria-live="polite">
+            {qty}
+          </span>
+          <button
+            type="button"
+            className="detail-collect-step"
+            aria-label={`Increase quantity of ${card.name}`}
+            onClick={() => setQuantity(cardKey, qty + 1)}
+          >
+            +
+          </button>
+        </div>
+        <button
+          type="button"
+          className="detail-collect-remove"
+          aria-label={`Remove ${card.name} from your collection`}
+          onClick={() => remove(cardKey)}
+        >
+          Remove
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -253,13 +329,29 @@ export default function CardDetailPage() {
   }
 
   const card = state.card
+  // Sword & Shield gating (UI layer). With the flag OFF, the printing switcher
+  // hides/skips S&S printings: a cross-series card opened here offers only its
+  // non-S&S printings, and the default hero is the first non-S&S printing.
+  // We DON'T touch the data layer — a directly-deep-linked PURELY-S&S card would
+  // filter down to zero printings, so in that (only) case we fall back to the
+  // full list rather than rendering an imageless page (deep-links keep working).
+  // Read the flag per-render so a console flip + re-render re-applies it.
+  const ssEnabled = isSwordShieldEnabled()
+  const filteredPrintings = ssEnabled
+    ? card.printings
+    : card.printings.filter((p) => seriesOf(p.id) !== SWORD_SHIELD_SERIES)
+  const visiblePrintings =
+    filteredPrintings.length > 0 ? filteredPrintings : card.printings
+
   // The active printing drives the hero preview. Resolve the stored id to a
   // record; if it's null (fresh card) or doesn't match (defensive — e.g. the
-  // selection somehow outlived a card swap), fall back to the first printing.
-  // `hero` is therefore always the *currently shown* printing (or undefined
-  // only when the card has no printings at all).
+  // selection somehow outlived a card swap, OR a now-hidden S&S printing was
+  // selected before the flag flipped off), fall back to the first VISIBLE
+  // printing. `hero` is therefore always the *currently shown* printing (or
+  // undefined only when the card has no printings at all).
   const hero =
-    card.printings.find((p) => p.id === activePrintingId) ?? card.printings[0]
+    visiblePrintings.find((p) => p.id === activePrintingId) ??
+    visiblePrintings[0]
   // SET + EXPANSION (series) for the ACTIVE printing, shown near the title and
   // each a clickable drill-down. set = the printing's set name; series =
   // seriesOf(printing id) (the display-ready expansion label, e.g.
@@ -267,7 +359,14 @@ export default function CardDetailPage() {
   // when the printing switcher changes the active printing. `hero` is undefined
   // only when the card has no printings at all, in which case we show neither.
   const heroSet = hero?.set
-  const heroSeries = hero ? seriesOf(hero.id) : ''
+  // The active printing's series label, blanked when it would read "Sword &
+  // Shield" while the flag is off (the series chip + its #/series/ drill-down
+  // are then hidden). This matters for the purely-S&S deep-link fallback above,
+  // where `hero` can still be an S&S printing. The empty string already hides
+  // the chip (it's rendered behind a `heroSeries &&` guard below).
+  const rawHeroSeries = hero ? seriesOf(hero.id) : ''
+  const heroSeries =
+    !ssEnabled && rawHeroSeries === SWORD_SHIELD_SERIES ? '' : rawHeroSeries
 
   return (
     // Own scroll container: the detail page is NOT virtualized, so it scrolls
@@ -367,6 +466,11 @@ export default function CardDetailPage() {
                 </div>
               )}
             </header>
+
+            {/* COLLECTION — card-level add / quantity / remove. Keyed on the
+                card's representative printing id (not the active printing), so
+                it's the same entry the grid + collection view track. */}
+            <CollectionActions card={card} />
 
             {/* RULES — Trainer/Tool rules text (poketools.json). Pokémon cards
                 don't carry this, so the section is omitted for them. */}
@@ -557,11 +661,11 @@ export default function CardDetailPage() {
                 notes throughout index.css), the gold tint is applied via a tiny
                 inline style that reuses the existing --gold* CSS vars, while
                 layout/shape/ring-width stay litewind utility classes. */}
-            {card.printings.length > 0 && (
+            {visiblePrintings.length > 0 && (
               <section className="detail-section">
                 <h3 className="detail-section-title">Printings</h3>
                 <ul className="printings-list">
-                  {card.printings.map((p) => {
+                  {visiblePrintings.map((p) => {
                     const selected = p.id === hero?.id
                     return (
                       <li key={p.id}>

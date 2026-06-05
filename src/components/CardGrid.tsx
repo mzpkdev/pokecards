@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { VirtuosoGrid } from 'react-virtuoso'
 import type { CardCategory, PokemonCard as PokemonCardData } from '../types'
 import PokemonCard from './PokemonCard'
@@ -15,6 +16,15 @@ type CardGridProps = {
   // True when the category loaded ≥1 card but the active filters match none —
   // a DISTINCT empty state from the "no cards yet / coming soon" no-data case.
   filteredEmpty: boolean
+  // OPTIONAL per-tile overlay (additive; defaults to none). When supplied, each
+  // grid item wraps the tile in a positioned container and renders this node on
+  // top — used by the collection view to lay quantity steppers + a remove
+  // control over each card WITHOUT changing the tile component itself. The
+  // category grids pass nothing, so their items render exactly as before.
+  renderOverlay?: (card: PokemonCardData) => ReactNode
+  // Optional empty-state override copy for the no-data case (e.g. the collection
+  // view's "your collection is empty" message). Defaults to the category copy.
+  emptyState?: ReactNode
 }
 
 // Top spacer rendered as VirtuosoGrid's Header. We can't use padding-top on the
@@ -33,6 +43,8 @@ export default function CardGrid({
   cards,
   state,
   filteredEmpty,
+  renderOverlay,
+  emptyState,
 }: CardGridProps) {
   // Loading — themed spinner (reuses the detail page's spinner styling).
   if (state === 'loading') {
@@ -75,9 +87,11 @@ export default function CardGrid({
     )
   }
 
-  // Empty — e.g. the Specials tab before specials.json exists. Tasteful
-  // "coming soon" state, themed, not an error.
+  // Empty — e.g. the Specials tab before specials.json exists, OR a caller-
+  // supplied empty state (the collection view's "nothing collected yet" copy).
+  // Tasteful, themed, not an error.
   if (cards.length === 0) {
+    if (emptyState) return <>{emptyState}</>
     return (
       <div className="grid-status grid-status--empty" role="status">
         <span className="grid-status-emoji" aria-hidden="true">
@@ -108,7 +122,19 @@ export default function CardGrid({
       // The list wrapper is what we turn into a responsive CSS grid. litewind
       // ships the responsive grid-cols variants, so we lean on utility classes.
       listClassName="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 px-4 pb-4"
-      itemContent={(_index, card) => <PokemonCard card={card} />}
+      itemContent={(_index, card) =>
+        renderOverlay ? (
+          // Positioned wrapper so the overlay (steppers/remove) layers over the
+          // tile. The tile keeps its own <Link> + holo geometry untouched; the
+          // overlay is a sibling on top. flex-col so the wrapper hugs the tile.
+          <div className="pc-cell">
+            <PokemonCard card={card} />
+            {renderOverlay(card)}
+          </div>
+        ) : (
+          <PokemonCard card={card} />
+        )
+      }
     />
   )
 }
