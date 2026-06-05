@@ -361,6 +361,19 @@ body {
 .tabbar {
   background: transparent;
   align-items: center;
+  /* WRAP on narrow viewports (root fix for the mobile horizontal overflow): the
+     bar holds four pill tabs (Pokémon / Poketools / Specials / Your Collection)
+     in a litewind `flex … gap-3` row with NO wrap, so at ~375px their combined
+     intrinsic width (the "Your Collection" pill is the widest) ran the row ~75px
+     past the viewport and the whole page scrolled sideways. flex-wrap lets the
+     pills drop onto a second row instead of forcing width > 100%; row-gap keeps
+     the wrapped rows from kissing (the litewind gap-3 sets the column gap). The
+     bar is flex-shrink-0 in the height chain, so wrapping only makes it taller —
+     the grid's .card-grid-scroller min-height floor already guarantees a usable
+     scroll area beneath it on short/narrow viewports. On wider viewports the row
+     fits on one line, so this never changes the desktop/tablet layout. */
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
   /* a touch of vertical room so the pills + their lift never clip (tightened a
      notch with the denser controls pass) */
   padding-top: 0.55rem;
