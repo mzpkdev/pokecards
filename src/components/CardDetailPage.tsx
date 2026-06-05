@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getCardDetail, resolveSimilar } from '../cardDetails'
 import type { SimilarLink } from '../cardDetails'
 import { seriesOf } from '../data'
-import { isSwordShieldEnabled, SWORD_SHIELD_SERIES } from '../featureFlags'
 import { energyIcon } from '../energyIcons'
 import { formatRoleLabel } from '../roleLabel'
 import { collectionKeyForDetail, useCollection } from '../useCollection'
@@ -329,26 +328,14 @@ export default function CardDetailPage() {
   }
 
   const card = state.card
-  // Sword & Shield gating (UI layer). With the flag OFF, the printing switcher
-  // hides/skips S&S printings: a cross-series card opened here offers only its
-  // non-S&S printings, and the default hero is the first non-S&S printing.
-  // We DON'T touch the data layer — a directly-deep-linked PURELY-S&S card would
-  // filter down to zero printings, so in that (only) case we fall back to the
-  // full list rather than rendering an imageless page (deep-links keep working).
-  // Read the flag per-render so a console flip + re-render re-applies it.
-  const ssEnabled = isSwordShieldEnabled()
-  const filteredPrintings = ssEnabled
-    ? card.printings
-    : card.printings.filter((p) => seriesOf(p.id) !== SWORD_SHIELD_SERIES)
-  const visiblePrintings =
-    filteredPrintings.length > 0 ? filteredPrintings : card.printings
+  // All printings present in the data are shown (and switchable) here.
+  const visiblePrintings = card.printings
 
   // The active printing drives the hero preview. Resolve the stored id to a
   // record; if it's null (fresh card) or doesn't match (defensive — e.g. the
-  // selection somehow outlived a card swap, OR a now-hidden S&S printing was
-  // selected before the flag flipped off), fall back to the first VISIBLE
-  // printing. `hero` is therefore always the *currently shown* printing (or
-  // undefined only when the card has no printings at all).
+  // selection somehow outlived a card swap), fall back to the first printing.
+  // `hero` is therefore always the *currently shown* printing (or undefined
+  // only when the card has no printings at all).
   const hero =
     visiblePrintings.find((p) => p.id === activePrintingId) ??
     visiblePrintings[0]
@@ -359,14 +346,10 @@ export default function CardDetailPage() {
   // when the printing switcher changes the active printing. `hero` is undefined
   // only when the card has no printings at all, in which case we show neither.
   const heroSet = hero?.set
-  // The active printing's series label, blanked when it would read "Sword &
-  // Shield" while the flag is off (the series chip + its #/series/ drill-down
-  // are then hidden). This matters for the purely-S&S deep-link fallback above,
-  // where `hero` can still be an S&S printing. The empty string already hides
-  // the chip (it's rendered behind a `heroSeries &&` guard below).
-  const rawHeroSeries = hero ? seriesOf(hero.id) : ''
-  const heroSeries =
-    !ssEnabled && rawHeroSeries === SWORD_SHIELD_SERIES ? '' : rawHeroSeries
+  // The active printing's series label (the display-ready expansion). Empty
+  // only when the card has no printings, in which case the series chip + its
+  // #/series/ drill-down are hidden (rendered behind a `heroSeries &&` guard).
+  const heroSeries = hero ? seriesOf(hero.id) : ''
 
   return (
     // Own scroll container: the detail page is NOT virtualized, so it scrolls

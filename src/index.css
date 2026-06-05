@@ -2272,6 +2272,29 @@ body {
   text-align: center;
 }
 
+/* ----------------------------------------------------------------------------
+   CARD GRID SCROLLER — mobile height floor (do not regress).
+   ----------------------------------------------------------------------------
+   VirtuosoGrid is virtualized: it renders rows against its scroller's measured
+   height. The scroller (this element) is given height:100% so it fills the
+   <main class="min-h-0 flex-1"> wrapper — correct on desktop, where the flex-1
+   leftover under the header/tabs/filter bar is tall.
+
+   On a short OR narrow viewport (e.g. 375px wide, where the filter bar's search
+   box + facet chips WRAP onto extra rows) that leftover can shrink toward zero,
+   so height:100% resolves to a near-zero box and the grid renders almost no
+   tiles — the grid was effectively unusable on mobile. This min-height is the
+   GUARANTEE: it floors the scroller at 60vh so there is always a usable,
+   scrollable area regardless of how little height the flex chain grants.
+
+   It is a FLOOR, not a fixed height: where the flex-1 leftover already exceeds
+   60vh (desktop, tall viewports) height:100% wins and this never engages, so the
+   larger layout is unchanged. The Virtuoso inline styles (height/transform) sit
+   on this same node and are untouched — className is merged, not clobbered. */
+.card-grid-scroller {
+  min-height: 60vh;
+}
+
 /* A chunky friendly spinner (sky ring + sunny sweep). */
 .grid-status-spinner {
   width: 34px;

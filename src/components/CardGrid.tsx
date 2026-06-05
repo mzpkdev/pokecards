@@ -111,6 +111,17 @@ export default function CardGrid({
     <VirtuosoGrid
       // Fill the area left under the header in App's full-height flex layout.
       style={{ height: '100%' }}
+      // Mobile height-floor guarantee. `style.height:100%` resolves against the
+      // <main class="min-h-0 flex-1"> parent, which is correct on desktop. But on
+      // a short/narrow viewport the header + tab bar + (wrapping) filter bar can
+      // eat almost all the column, so the flex-1 leftover — and therefore this
+      // scroller — collapses toward 0 and barely any tiles render. `className` is
+      // applied by Virtuoso to its OUTER scroller node (alongside its own inline
+      // height/transform, which it does NOT clobber), so .card-grid-scroller's
+      // `min-height` (see index.css) floors that scroller and keeps a usable,
+      // scrollable area on mobile. The floor is < the desktop leftover, so it
+      // never engages on larger viewports (layout there is unchanged).
+      className="card-grid-scroller"
       // Render rows a little before they enter the viewport so freshly scrolled-in
       // tiles are already mounted/decoded — kills the edge-of-screen pop-in.
       increaseViewportBy={{ top: 300, bottom: 600 }}
