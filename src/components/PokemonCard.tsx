@@ -1,0 +1,121 @@
+import { Link } from 'react-router-dom'
+import type { PokemonCard as PokemonCardData } from '../types'
+import { useHoloPointer } from '../useHoloPointer'
+// Local, content-hashed asset (Vite rewrites the URL under the '/pokecards/'
+// base) so it stays correct on GitHub Pages and never hotlinks.
+import pikachuCard from '../assets/pikachu-card.png'
+
+/*
+  Holographic pointer tracking adapted from simeydotme/pokemon-cards-css
+  (https://github.com/simeydotme/pokemon-cards-css), licensed GPL-3.0.
+  Copyright (c) Simon Goellner (simeydotme).
+
+  The pointer→CSS-variable engine (the rAF lerp + Simey's variable contract) now
+  lives in the shared useHoloPointer hook (src/useHoloPointer.ts), which both
+  this grid tile and the fullscreen CardLightbox consume — so there's exactly one
+  holo implementation. This component just attaches the hook's ref + handlers to
+  the tile <Link> and renders the ported holo layers (read from index.css). No
+  global document/window listeners; the hook is per-element / remount-safe, which
+  matters for VirtuosoGrid tile recycling.
+*/
+
+type PokemonCardProps = {
+  card: PokemonCardData
+}
+
+export default function PokemonCard({ card }: PokemonCardProps) {
+  const isSpecial = card.category === 'special'
+  // Real cards carry their printings[0].image (a remote pokemontcg.io hires URL),
+  // mapped onto card.imageUrl in data.ts. The Pikachu asset is only a defensive
+  // fallback if a record somehow lacks an image (data.ts already applies it, so
+  // this `||` is belt-and-suspenders). Broken remote images are handled below.
+  const src = card.imageUrl || pikachuCard
+  const isFallback = !card.imageUrl
+  const alt = isFallback ? `${card.name} (placeholder image)` : card.name
+
+  // Shared holo engine: the callback ref to attach to the holo element plus the
+  // pointer handlers. Same mechanism the lightbox uses. Destructured at the call
+  // site so the handlers read as plain values (not properties of a ref-bearing
+  // object) during render.
+  const { ref: holoRef, onPointerEnter, onPointerMove, onPointerLeave } =
+    useHoloPointer()
+
+  return (
+    // The tile IS the link: making .pc-card a react-router <Link> (a real <a>)
+    // keeps the holo geometry identical — same element the holo ref points at, same
+    // bounding box getBoundingClientRect reads, same node the CSS vars are written
+    // to — so the tilt/clip/3D are untouched; we only added navigation. onClick
+    // (the anchor's) is orthogonal to onPointerMove, so the holo pointer tracking
+    // coexists with the click. Anchors are focusable + activate on Enter natively;
+    // we add Space (onKeyDown) so it matches button-like keyboard activation.
+    // No overflow-hidden / rounded-* here: the Pikachu scan already has its own
+    // border + rounded corners baked in, so clipping the frame would fight them
+    // and produce doubled/mismatched corners. The frame is just a shadow now.
+    //
+    // holo.ref is the hook's stable callback ref (RefCallback<HTMLElement>); it
+    // accepts this anchor where <Link> wants an HTMLAnchorElement, so we hand it
+    // straight to ref= with no cast and no local assignment (keeping the
+    // react-hooks/immutability rule happy — the hook owns the node).
+    <Link
+      to={`/card/${card.id}`}
+      ref={holoRef}
+      data-category={card.category}
+      aria-label={`View ${card.name} details`}
+      onPointerEnter={onPointerEnter}
+      onPointerMove={onPointerMove}
+      onPointerLeave={onPointerLeave}
+      onKeyDown={(e) => {
+        // Anchors fire on Enter for free; add Space to match button semantics
+        // (and prevent the default page-scroll that Space would otherwise cause).
+        // e.currentTarget is this anchor, so we activate it directly rather than
+        // reaching through the holo hook's (now private) node.
+        if (e.key === ' ' || e.key === 'Spacebar') {
+          e.preventDefault()
+          e.currentTarget.click()
+        }
+      }}
+      className={[
+        'pc-card pc-card-link relative flex flex-col',
+        isSpecial ? 'pc-card--special' : '',
+      ].join(' ')}
+    >
+      {/* card__rotator: the 3D-tilted layer (perspective lives on .pc-card).
+          Holds the art plus the holo overlays so they tilt together — matches
+          Simey's translater > rotator > front(img + shine + glare) structure. */}
+      <div className="pc-thumb">
+        <div className="pc-rotator">
+          <img
+            src={src}
+            alt={alt}
+            // Remote pokemontcg.io art: async decode + lazy load so 3914 remote
+            // images don't block the main thread on scroll (sync decode made
+            // sense only for the old single cached local asset). VirtuosoGrid's
+            // increaseViewportBy still pre-mounts tiles before they enter view, so
+            // they decode ahead of time and don't pop. On a broken/404 remote URL
+            // we swap to the local Pikachu fallback once (guarded so it can't loop).
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            onError={(e) => {
+              // Swap to the local fallback exactly once. A data flag guards
+              // against an error loop if the fallback itself ever failed (the
+              // src getter is absolute, so we can't compare it to the import).
+              const img = e.currentTarget
+              if (img.dataset.fallback) return
+              img.dataset.fallback = '1'
+              img.src = pikachuCard
+            }}
+            className="pc-thumb-img"
+          />
+          {/* Holographic overlays ported from simeydotme/pokemon-cards-css.
+              Both sit above the art, are clipped to the card's rounded rect by
+              .pc-rotator's own overflow:hidden, and are invisible (--card-opacity 0) at
+              rest — the resting card stays the clean image. pointer-events:none so
+              they never intercept the pointer tracking. */}
+          <div className="pc-shine" aria-hidden="true" />
+          <div className="pc-glare" aria-hidden="true" />
+        </div>
+      </div>
+    </Link>
+  )
+}

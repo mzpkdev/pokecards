@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Bright playful theme: paint the chrome + first frame the sunny page tint
+         so there's no dark/white flash before the CSS loads. -->
+    <meta name="theme-color" content="#FFE9A8" />
+    <meta name="color-scheme" content="light" />
+    <style>
+      html,
+      body {
+        background-color: #fff7e6;
+      }
+    </style>
+    <!-- litewind: prebuilt static Tailwind CSS via CDN (no Tailwind build step) -->
+    <link rel="stylesheet" href="https://cdn.html-first.com/litewind-2.0.1.css" />
+    <!-- Playful "kid" type system: Baloo 2 (rounded display/wordmark) + Nunito
+         (rounded, readable UI/body). NOT the Pokémon logo font. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <title>Pokécards — gotta collect 'em!</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,2500 @@
+/* ============================================================================
+   POKÉCARDS — "Full Playful / Kid" theme
+   ----------------------------------------------------------------------------
+   litewind (the prebuilt static Tailwind via CDN) handles layout / flex / grid /
+   spacing / sizing / rounded / shadow / ring / transition / hover. It does NOT
+   ship: arbitrary color brackets, via- gradients, backdrop/blur, aspect-*,
+   focus-visible variants. So every EXACT color, the fonts, the holo foil, the
+   glows, the Poké Ball line-art, the atmosphere, the card aspect ratio and the
+   keyboard focus rings live here, driven by CSS variables.
+
+   THE KEY RULE — bright shell, transparent tiles, dark lightbox stage:
+   The SHELL (page, header, tabs, filter bar, detail panels, related headers,
+   footers, empty/loading states, headings) is BRIGHT + playful. The grid tiles
+   (.pc-thumb) and the detail hero (.detail-hero-frame) now run TRANSPARENT, so
+   the playful frame/shell shows through instead of a black box — their holo
+   blends against the card ART (cover-fit), not the background, so it's
+   unaffected. The FULLSCREEN LIGHTBOX (.pc-card--lightbox .pc-thumb + the
+   lightbox backdrop) keeps the DARK --stage* tokens (kept near-black on purpose)
+   so the enlarged holo foil/glare keeps popping where it's largest.
+   ========================================================================== */
+
+:root {
+  /* --- BRIGHT SHELL surfaces — sunny, cheerful, high-saturation ----------- */
+  /* Page background tints (soft warm cream → sky) and clean white panels. */
+  --bg: #fff7e6; /* page base (warm cream) */
+  --bg-2: #fffdf6; /* slightly lighter top of the page wash */
+  --surface: #ffffff; /* clean white panel surface */
+  --surface-2: #fff3d6; /* soft sunny tinted surface (chips/hovers) */
+  --surface-sky: #e8f4ff; /* cool sky-tinted surface */
+
+  /* Chunky playful lines (sit on the bright surfaces). */
+  --border: #ffd45e; /* sunny border */
+  --border-strong: #ffb020; /* deeper amber border */
+  --border-ink: #2b2150; /* chunky "sticker" ink outline */
+
+  /* Type — deep friendly ink (NOT black) on the bright shell, AA on white. */
+  --text: #2a2350; /* deep indigo ink */
+  --text-dim: #5b5486; /* muted indigo */
+  --text-faint: #8a83b0; /* faint indigo */
+
+  /* --- PLAYFUL PRIMARIES --------------------------------------------------- */
+  --sun: #ffc400; /* sunny yellow */
+  --sun-deep: #f59e0b; /* amber (text-on-white safe-ish; used w/ ink) */
+  --sky: #2b8fff; /* bright sky/royal blue */
+  --sky-deep: #1567d8; /* deeper blue for text on light */
+  --coral: #ff5470; /* energetic red/coral */
+  --coral-deep: #e23a59; /* deeper coral for text on light */
+  --grape: #8b5cf6; /* playful violet accent */
+  --mint: #18c08f; /* fresh green accent */
+
+  /* "accent" = the dominant brand accent (sky blue). Tints/lines/glows. */
+  --accent: var(--sky);
+  --accent-deep: var(--sky-deep);
+  --accent-soft: rgba(43, 143, 255, 0.14);
+  --accent-line: rgba(43, 143, 255, 0.45);
+  --accent-glow: rgba(43, 143, 255, 0.32);
+
+  /* Legacy "gold" aliases kept so any straggler rule still resolves — now
+     re-pointed at the sunny yellow so nothing reads dark/muted. */
+  --gold: var(--sun);
+  --gold-deep: var(--sun-deep);
+  --gold-soft: rgba(255, 196, 0, 0.18);
+  --gold-line: rgba(255, 176, 32, 0.55);
+  --gold-glow: rgba(255, 196, 0, 0.4);
+
+  /* --- DARK CARD STAGE (PRESERVED) — the holo foil pops on this ----------- */
+  --stage: #11151f; /* dark tile surface behind the scan */
+  --stage-2: #1a2030; /* dark skeleton highlight */
+  --stage-line: #2a3344; /* dark rim on the stage */
+  --stage-glow: rgba(255, 196, 0, 0.3); /* warm halo around staged cards */
+
+  /* Holo foil accent hues (specials only) — brightened. */
+  --holo-magenta: #ff3ea5;
+  --holo-cyan: #29e7ff;
+  --holo-violet: #9b6bff;
+
+  /* Per-category wayfinding colors (used for tab/frame tints). */
+  --edge-pokemon: var(--sky);
+  --edge-poketool: var(--mint);
+  --edge-special: var(--coral);
+
+  /* --- SHAPE + SHADOW scale (generous radius, soft colorful shadows) ------ */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 26px;
+  --r-pill: 999px;
+  --shadow-sky: 0 10px 24px -12px rgba(43, 143, 255, 0.45);
+  --shadow-sun: 0 12px 26px -12px rgba(245, 158, 11, 0.45);
+  --shadow-soft: 0 8px 20px -12px rgba(43, 33, 80, 0.35);
+
+  --font-display: 'Baloo 2', ui-rounded, 'Nunito', system-ui, sans-serif;
+  --font-body: 'Nunito', ui-rounded, system-ui, sans-serif;
+
+  color-scheme: light;
+}
+
+/* --- critical height chain (do not regress: keeps VirtuosoGrid measurable) --- */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--text);
+  background-color: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ============================================================================
+   ATMOSPHERE — fixed bright playful backdrop: cheerful colored "blobs" of
+   sun/sky/coral/grape bleeding in from the corners over a soft cream wash, plus
+   a faint friendly dot grid. No images, no blur util. The whole field reads
+   sunny so the shell is unmistakably bright; the dark card stage lives only on
+   the tiles/hero/lightbox themselves.
+   ========================================================================== */
+.app-bg {
+  position: relative;
+  isolation: isolate;
+}
+
+.app-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(
+      85% 60% at 6% -6%,
+      rgba(255, 196, 0, 0.5) 0%,
+      rgba(255, 196, 0, 0) 55%
+    ),
+    radial-gradient(
+      80% 60% at 100% 0%,
+      rgba(43, 143, 255, 0.32) 0%,
+      rgba(43, 143, 255, 0) 52%
+    ),
+    radial-gradient(
+      70% 55% at 95% 100%,
+      rgba(255, 84, 112, 0.28) 0%,
+      rgba(255, 84, 112, 0) 55%
+    ),
+    radial-gradient(
+      70% 55% at 0% 100%,
+      rgba(139, 92, 246, 0.22) 0%,
+      rgba(139, 92, 246, 0) 55%
+    ),
+    linear-gradient(180deg, var(--bg-2) 0%, var(--bg) 40%, var(--bg) 100%);
+}
+
+/* TEXTURE LAYER — a faint friendly dot-grid PLUS a whisper-quiet iridescent
+   holo shimmer, both masked to the SAME top-biased fade so they're strongest at
+   the top/edges and dissolve to clean cream behind the card grid.
+   ----------------------------------------------------------------------------
+   ROUND-2 (#1): the user wanted a delicate holo-shimmer texture on the bright
+   page background. It is deliberately VERY low-contrast (low-alpha iridescent
+   bands at ~0.05–0.07 over the cream) so it does NOT compete with the card holo
+   (the signature effect): the cards' shine/glare blend against the card ART, not
+   this faint backdrop band, and this layer fades out (via the mask) exactly where
+   the grid sits — so behind the tiles the background reads as clean cream and the
+   card holo keeps popping. The shimmer is STATIC (no animation) by design, which
+   also satisfies prefers-reduced-motion (nothing to disable here). The dot grid
+   is the LAST background layer (painted under the shimmer's soft bands).
+   ========================================================================== */
+.app-bg::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    /* (1) iridescent holo bands — a soft diagonal rainbow sweep, very low alpha
+       so it's a barely-there sheen near the top edge, not a loud gradient. */
+    repeating-linear-gradient(
+      115deg,
+      rgba(255, 84, 112, 0.05) 0px,
+      rgba(255, 196, 0, 0.05) 26px,
+      rgba(24, 192, 143, 0.05) 52px,
+      rgba(43, 143, 255, 0.06) 78px,
+      rgba(139, 92, 246, 0.05) 104px,
+      rgba(255, 84, 112, 0.05) 130px
+    ),
+    /* (2) a faint cross sweep so the sheen shifts hue across the field rather
+       than reading as flat stripes (still whisper-quiet). */
+    repeating-linear-gradient(
+      -65deg,
+      rgba(43, 143, 255, 0.035) 0px,
+      rgba(139, 92, 246, 0.035) 60px,
+      rgba(255, 196, 0, 0.03) 120px,
+      rgba(43, 143, 255, 0.035) 180px
+    ),
+    /* (3) the original friendly dot-grid texture (sunny dots). */
+    radial-gradient(rgba(245, 158, 11, 0.16) 1.5px, transparent 1.5px);
+  background-size: 220% 220%, 260% 260%, 26px 26px;
+  background-position:
+    0% 0%,
+    100% 0%,
+    -1px -1px;
+  background-repeat: repeat, repeat, repeat;
+  /* Shared fade: opaque at the top, gone by ~88% down — so the texture is
+     strongest at the top/edges and clean behind the grid below. */
+  mask-image: radial-gradient(130% 100% at 50% 0%, #000 30%, transparent 88%);
+  -webkit-mask-image: radial-gradient(
+    130% 100% at 50% 0%,
+    #000 30%,
+    transparent 88%
+  );
+  pointer-events: none;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* ============================================================================
+   ROUTE TRANSITION (#4) — a short, non-linear fade-in on every route change.
+   RouteFade.tsx restarts this keyframe imperatively on navigation (without
+   remounting the routed subtree). ~200ms ease-out, opacity only (no layout /
+   transform) so it can't disturb the VirtuosoGrid height chain or scroll. Fade-
+   out is intentionally omitted. Disabled under prefers-reduced-motion below.
+   ========================================================================== */
+.route-fade {
+  animation: route-fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes route-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-fade {
+    animation: none !important;
+  }
+}
+
+/* ============================================================================
+   HEADER — bright, chunky "sticker bar". White surface, sunny wash, a thick
+   playful bottom border in the brand colors.
+   ========================================================================== */
+.app-header {
+  background: linear-gradient(180deg, #ffffff 0%, var(--surface-2) 100%);
+  position: relative;
+  border-bottom: 3px solid var(--border-strong);
+  z-index: 1;
+}
+
+/* a fat candy-stripe accent beneath the bar */
+.app-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--sun) 0%,
+    var(--sky) 33%,
+    var(--coral) 66%,
+    var(--grape) 100%
+  );
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--sky-deep);
+  line-height: 1;
+}
+
+.wordmark-accent {
+  color: var(--coral);
+  /* a soft white sticker outline so the two-tone wordmark pops on any tint */
+  text-shadow:
+    0 2px 0 rgba(255, 255, 255, 0.6),
+    0 0 14px rgba(255, 84, 112, 0.25);
+}
+
+.app-subtitle {
+  color: var(--sun-deep);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+/* The wordmark is a home link (→ /pokemon) on every view. Strip anchor defaults
+   so it reads as the brand lockup, not a hyperlink; w-fit keeps the hit area
+   tight to the glyph + text rather than the full-width header. */
+.brand-home {
+  text-decoration: none;
+  color: inherit;
+  outline: none;
+  border-radius: var(--r-md);
+}
+
+/* No hover motion on the wordmark/logo (deliberately removed — it read as weird);
+   the logo is still a home link, just without the scale/rotate hover effect. */
+
+.brand-home:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 4px;
+}
+
+/* line-art Poké Ball glyph in the header — now a friendly sky-blue token. */
+.pokeball-glyph {
+  color: var(--sky);
+  filter: drop-shadow(0 3px 0 rgba(43, 143, 255, 0.25));
+  flex-shrink: 0;
+}
+
+/* gentle idle wiggle on the header glyph — a subtle rotate only (round-2: the
+   vertical bob / position shift was removed; the glyph still has a little life
+   via rotation, which reads as a wobble rather than an annoying lift). */
+.pokeball-glyph {
+  animation: glyph-bounce 2.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes glyph-bounce {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+/* ============================================================================
+   TABS — chunky pill toggles. Each is a rounded "sticker" that lifts on hover
+   and pops bright + colored when active. Pill shape, fat borders, bouncy motion.
+   ========================================================================== */
+.tabbar {
+  background: transparent;
+  align-items: center;
+  /* a touch of vertical room so the pills + their lift never clip (tightened a
+     notch with the denser controls pass) */
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+}
+
+.tab {
+  position: relative;
+  color: var(--text-dim);
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  transition:
+    color 200ms ease,
+    background-color 200ms ease,
+    border-color 200ms ease,
+    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 200ms ease;
+  outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tab:hover {
+    color: var(--sky-deep);
+    border-color: var(--sky);
+    /* hover feedback without a position shift: a subtle scale + color/shadow
+       (round-2: translateY lift removed). */
+    transform: scale(1.04);
+    box-shadow: var(--shadow-sky);
+  }
+}
+
+/* No underline element in the playful skin — the whole pill changes state. */
+.tab::after {
+  content: none;
+}
+
+.tab.is-active {
+  color: #ffffff;
+  background: var(--sky);
+  border-color: var(--sky-deep);
+  box-shadow:
+    0 8px 18px -8px var(--accent-glow),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.12);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tab.is-active:hover {
+    color: #ffffff;
+    transform: scale(1.04);
+  }
+}
+
+/* keyboard-only focus ring (litewind has no focus-visible variants) */
+.tab:focus-visible {
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--coral);
+}
+
+/* ============================================================================
+   SEARCH + FILTER BAR — sits between the tab bar and the virtualized grid.
+   flex-shrink-0 (it does NOT stretch) so <main> keeps the leftover height the
+   VirtuosoGrid needs to measure. Themed dark/gold, reusing the surface/border/
+   gold variables + display font from the rest of the app.
+   ----------------------------------------------------------------------------
+   ROUND-2 (#7): the controls band used to end in a HARD 3px amber bottom border,
+   which read as an abrupt seam where the warm cream-washed header/tabs/filter
+   region met the cooler atmosphere behind the grid below. That border is gone;
+   instead the band's own cream→transparent gradient is extended + eased so the
+   surface fades smoothly into the page atmosphere with NO hard edge — the
+   controls region now flows seamlessly into the grid. (The extra bottom padding
+   gives the fade room so the controls don't sit on the faint tail.)
+   ========================================================================== */
+.filter-bar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.7rem 1.5rem 0.85rem;
+  /* No bottom border — a soft, longer cream→transparent fade replaces the hard
+     seam so the band dissolves into the atmosphere below. */
+  background: linear-gradient(
+    180deg,
+    var(--surface-2) 0%,
+    rgba(255, 243, 214, 0.55) 55%,
+    rgba(255, 243, 214, 0) 100%
+  );
+}
+
+.filter-bar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* --- Search box ------------------------------------------------------------ */
+.filter-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 16rem;
+  min-width: 12rem;
+  max-width: 26rem;
+}
+
+.filter-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--sky);
+  /* Round-2: the magnifier was far too small. The ⌕ glyph has a small footprint
+     inside its em box, so it needs a larger font-size to read as a normal,
+     proportionate search icon next to the input text. */
+  font-size: 1.55rem;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.filter-search-input {
+  width: 100%;
+  /* extra left padding so the now larger search icon clears the input text */
+  padding: 0.42rem 0.8rem 0.42rem 2.4rem;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.875rem;
+  box-shadow: var(--shadow-soft);
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.filter-search-input::placeholder {
+  color: var(--text-faint);
+  font-weight: 600;
+}
+
+.filter-search-input:hover {
+  border-color: var(--sky);
+}
+
+.filter-search-input:focus-visible {
+  border-color: var(--sky);
+  background: var(--surface);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+/* Hide the native search "clear" X (WebKit) so the control reads consistently. */
+.filter-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* --- Facet multiselect (trigger + popover) --------------------------------- */
+.filter-facet {
+  position: relative;
+}
+
+.filter-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.32rem 0.7rem;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  outline: none;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .filter-trigger:hover {
+    color: var(--sky-deep);
+    border-color: var(--sky);
+    /* scale + color/shadow only — no translateY lift (round-2). */
+    transform: scale(1.04);
+    box-shadow: var(--shadow-sky);
+  }
+}
+
+.filter-trigger:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+  color: var(--text);
+}
+
+/* An active facet (≥1 selection) reads as a bright sky-blue sticker. */
+.filter-trigger.is-active {
+  color: #ffffff;
+  border-color: var(--sky-deep);
+  background: var(--sky);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .filter-trigger.is-active:hover {
+    color: #ffffff;
+  }
+}
+
+.filter-trigger-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.3rem;
+  border-radius: var(--r-pill);
+  background: var(--sun);
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.filter-trigger-caret {
+  font-size: 0.7rem;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+/* Popover panel — anchored under its trigger. A scrollable checkbox list. */
+.filter-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 13rem;
+  max-width: 18rem;
+  padding: 0.55rem;
+  border: 3px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: 0 22px 44px -20px rgba(43, 33, 80, 0.45);
+}
+
+.filter-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.15rem 0.35rem 0.45rem;
+}
+
+.filter-menu-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sky-deep);
+}
+
+.filter-menu-clear {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--coral-deep);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  outline: none;
+}
+
+.filter-menu-clear:hover {
+  text-decoration: underline;
+}
+
+.filter-menu-clear:focus-visible {
+  outline: 3px solid var(--coral);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.filter-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+.filter-option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.42rem 0.45rem;
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filter-option:hover {
+  background: var(--surface-sky);
+}
+
+.filter-option input[type='checkbox'] {
+  flex-shrink: 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--sky);
+  cursor: pointer;
+}
+
+.filter-option-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Status row: result count + active badge + clear-all ------------------- */
+.filter-bar-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+}
+
+.filter-count {
+  color: var(--text-dim);
+  font-family: var(--font-body);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.filter-count strong {
+  color: var(--sky-deep);
+  font-weight: 800;
+}
+
+.filter-active-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.65rem;
+  border-radius: var(--r-pill);
+  background: var(--sun);
+  border: 2px solid var(--sun-deep);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.76rem;
+  letter-spacing: 0.01em;
+}
+
+.filter-clear-all {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--coral-deep);
+  font-family: var(--font-display);
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  outline: none;
+  transition: color 140ms ease;
+}
+
+.filter-clear-all:hover {
+  color: var(--coral);
+  text-decoration: underline;
+}
+
+.filter-clear-all:focus-visible {
+  outline: 3px solid var(--coral);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ============================================================================
+   CARDS — frameless holo tile (round-2 polish).
+   ----------------------------------------------------------------------------
+   The old white "sticker frame" (fat amber border + white inset padding + box
+   background) has been REMOVED: the grid tile is now JUST the card itself — the
+   scan (with its own baked-in border + rounded corners) sitting on the bright
+   transparent shell, holo intact. The .pc-thumb stays transparent and the holo
+   shine/glare blend against the card ART (cover-fit), so dropping the frame
+   doesn't touch the signature effect. A soft colorful drop shadow remains for
+   depth + hover feedback (the user asked to keep non-translation hover cues),
+   but there is no box, no padding, and no colored border anymore.
+   ========================================================================== */
+.pc-card {
+  --pc-radius: 12px;
+  /* Holo interaction vars — Simey's CSS-variable contract (see the ported holo
+     block below). Defaults are the neutral resting state (flat, glare centered,
+     foil hidden via --card-opacity 0); PokemonCard.tsx writes live values on
+     pointermove and eases them back on pointerleave. Declared here so the
+     resting card has a fully-defined identity transform and the holo layers
+     stay invisible until hover writes --card-opacity > 0. */
+  --pointer-x: 50%;
+  --pointer-y: 50%;
+  --pointer-from-center: 0;
+  --pointer-from-top: 0.5;
+  --pointer-from-left: 0.5;
+  --card-opacity: 0;
+  --rotate-x: 0deg;
+  --rotate-y: 0deg;
+  --background-x: 50%;
+  --background-y: 50%;
+  --card-scale: 1;
+  /* FRAMELESS: no padding, no box background, no border — just the card. The
+     radius matches the inner thumb so the soft drop shadow hugs the scan's
+     rounded silhouette. */
+  padding: 0;
+  background: transparent;
+  border: 0 solid transparent;
+  border-radius: var(--pc-radius);
+  /* soft colorful drop shadow (warm amber) for depth + hover feedback. With no
+     frame the shadow now reads directly under the card silhouette. */
+  box-shadow: 0 12px 26px -14px rgba(245, 158, 11, 0.5);
+  /* Box-shadow eases for the hover feedback; the tilt + scale(1.05) live on
+     .pc-rotator (driven imperatively via the rAF lerp in the component). NB:
+     no transform transition here — the tile must not position-shift on hover
+     (round-2: translation motion removed app-wide). */
+  transition: box-shadow 240ms ease;
+}
+
+/* The tile is now a react-router <Link> (a real <a>). Strip the anchor's default
+   text styling so it reads purely as the card, and make the whole tile a click
+   target. CRITICAL: no display/overflow change here — .pc-card stays the same
+   box (block-level, sized by the grid column + .pc-thumb aspect-ratio), so the
+   holo geometry (getBoundingClientRect, the rotator's own clip + transform) is
+   identical to before; we only added navigation + cursor + focus affordances. */
+.pc-card-link {
+  cursor: pointer;
+  color: inherit;
+  text-decoration: none;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* keyboard-only focus ring on the card link (litewind has no focus-visible
+   variants). Uses outline (not box-shadow) so it never fights the holo/lift
+   box-shadows on .pc-card / .pc-card--special / .is-interacting; outline follows
+   the rounded silhouette in modern browsers. */
+.pc-card-link:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 3px;
+}
+
+/* Frameless tile still reacts on hover — a brighter, larger colorful drop
+   shadow (no border now, no position shift). The holo card inside (.pc-rotator)
+   does its own tilt+scale. Gated to hover/fine devices. */
+@media (hover: hover) and (pointer: fine) {
+  .pc-card-link:hover {
+    box-shadow: 0 18px 34px -14px rgba(43, 143, 255, 0.5);
+  }
+}
+
+/* The image / placeholder area. litewind ships no aspect-* utilities, so the
+   tile geometry is pinned here. CRITICAL for VirtuosoGrid: the height MUST be
+   deterministic and independent of whether the <img> has loaded/decoded —
+   otherwise Virtuoso re-measures row heights mid-scroll and the total
+   scrollHeight (and scrollbar thumb) shrinks/grows as you scroll.
+
+   The aspect-ratio (set below) resolves purely from the column width (the
+   litewind grid columns are equal-width and lay out before any image decodes),
+   so the frame is the exact same size from first paint on every tile. The <img>
+   is taken out of flow (position:absolute) so it can never contribute to or
+   perturb the measured height. */
+.pc-thumb {
+  position: relative;
+  width: 100%;
+  /* Deterministic tile box at the canonical TCG ratio (600×825 ≈ 63:88, the
+     Pikachu fallback's ratio). Derived purely from the equal-width grid column,
+     so the height is fixed before any image decodes (VirtuosoGrid needs this).
+     The live pokemontcg.io art is NOT a single ratio — sampled cards run
+     734×1024, 733×1024, 658×918, 1423×1984 (≈1.394–1.397, vs this box's 1.375) —
+     so object-fit:cover (on .pc-thumb-img) absorbs that small per-card variance
+     by cropping evenly to fill this box. The full card silhouette (incl. its
+     baked-in border) reads uncropped; only a sub-2% sliver of the very longest
+     cards is trimmed symmetrically. NB: the <img> must carry min-height:0 (see
+     .pc-rotator > *) or its intrinsic ratio would inflate the grid track past
+     this box and the overflow:hidden rotator would clip the bottom edge. */
+  aspect-ratio: 600 / 825;
+  /* TRANSPARENT stage: the tile no longer paints a near-black box, so the bright
+     playful .pc-card frame (white border + amber sticker) shows through instead
+     of a dark rectangle. The holo is UNAFFECTED — the shine/glare layers blend
+     (color-dodge/overlay/exclusion) against the card ART, not this background,
+     and the grid .pc-thumb-img uses object-fit:cover so it fills the box edge to
+     edge (no letterboxed gaps where the backdrop would show). The only thing
+     this surface ever showed was the brief pre-decode moment, which now reads as
+     the frame's inner padding rather than a black flash. (The lightbox keeps its
+     own dark stage below, where the holo is largest and most prominent.) */
+  background-color: transparent;
+  /* Same radius as the frame, so the box visually matches the card silhouette.
+     IMPORTANT: we deliberately do NOT put overflow:hidden here. .pc-thumb is the
+     ANCESTOR of the transformed .pc-rotator, and a parent's overflow:hidden CROPS
+     a child's transform — so the hover tilt + scale(1.05) would get clipped back
+     to this resting rect (the cut-off/shear bug). The rounded clip that trims the
+     scan's near-white corner pixels and bounds the holo layers lives on the
+     .pc-rotator itself instead (its own overflow:hidden clips its CHILDREN — img +
+     shine + glare — but never its own transform), so the tilt/scale spills out
+     freely. */
+  border-radius: var(--pc-radius);
+  /* Perspective lives on the geometry box so the inner .pc-rotator tilt reads as
+     real 3D depth rather than a flat skew. Mirrors Simey's perspective:600px on
+     .card__translater/.card__rotator (scaled for our smaller tile). */
+  perspective: 750px;
+}
+
+/* card__rotator: the 3D-tilted layer that holds the art + holo overlays so they
+   tilt as one unit. Ported from simeydotme/pokemon-cards-css base.css
+   (.card__rotator) — the deliberate axis swap (rotateY uses --rotate-x) is
+   Simey's. The tilt tracks the pointer 1:1 while interacting; on leave the
+   component eases --rotate-x/y back to 0 and this transition smooths the final
+   settle. Pure transform → no layout/scrollHeight impact. */
+.pc-rotator {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  /* The rounded clip lives HERE (not on the .pc-thumb ancestor): an element's own
+     overflow:hidden clips its CHILDREN — the img + shine + glare → clean rounded
+     corners, holo bounded to the rounded rect — but does NOT clip the element's
+     own transform, so the hover tilt + scale(1.05) spill out freely instead of
+     being cropped back to the resting box. */
+  border-radius: var(--pc-radius);
+  overflow: hidden;
+  transform: rotateY(var(--rotate-x)) rotateX(var(--rotate-y))
+    scale(var(--card-scale));
+  /* NB: no transform-style: preserve-3d here — overflow:hidden above forces a flat
+     stacking context anyway, so the holo z-order is handled purely by z-index on
+     the shine/glare (glare > shine > img) rather than translateZ depth. */
+  transition: transform 450ms cubic-bezier(0.23, 1, 0.32, 1);
+  will-change: transform;
+}
+
+/* While interacting, kill the tilt transition so it tracks the cursor 1:1 (the
+   rAF lerp in the component already provides the easing). */
+.pc-card.is-interacting .pc-rotator {
+  transition: none;
+}
+
+/* Art + holo overlays are grid-stacked into the single rotator cell (Simey's
+   `.card__rotator *` { grid-area: 1/1 } pattern) so they share the exact same
+   rounded box and tilt together. The outer .pc-thumb aspect-ratio box still owns
+   the deterministic geometry, so the image load can never change the measured
+   tile height (VirtuosoGrid scrollHeight stays stable).
+
+   min-height/min-width:0 is LOAD-BEARING: a grid item's default `min-*: auto`
+   resolves to its MIN-CONTENT size, and for the <img> (a replaced element with
+   an intrinsic aspect ratio) that min-content height is derived from the image's
+   OWN ratio at the column width — the real pokemontcg.io art is 734×1024
+   (≈1.395), taller than this box's 600/825 (≈1.375). That intrinsic min would
+   stretch the single grid track ~4–5px PAST .pc-thumb's height:100% box, and
+   since .pc-rotator clips with overflow:hidden the extra pixels at the bottom of
+   the card art get cropped (the "bottom edge cut off" bug). Pinning min-*:0 lets
+   the track honour height:100% (the deterministic .pc-thumb aspect-ratio box)
+   instead of the image's intrinsic size; object-fit:cover then fills that box and
+   crops evenly, so the whole card silhouette shows uncropped and the measured
+   tile height stays exactly the aspect-ratio box (VirtuosoGrid scrollHeight
+   unaffected). */
+.pc-rotator > * {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  border-radius: inherit;
+}
+
+/* Card art fills the frame edge-to-edge. The frame matches the scan's own ratio
+   so object-fit:cover shows the whole card with zero crop. */
+.pc-thumb-img {
+  object-fit: cover;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* ============================================================================
+   HOLOGRAPHIC OVERLAYS — adapted from simeydotme/pokemon-cards-css
+   (https://github.com/simeydotme/pokemon-cards-css), licensed GPL-3.0.
+   Copyright (c) Simon Goellner (simeydotme).
+
+   This is a faithful port of Simey's real foil effect, not an approximation.
+   The variable contract (--pointer-x/y, --pointer-from-center/top/left,
+   --background-x/y, --card-opacity), the layered background-image stacks, the
+   background-blend-mode / mix-blend-mode lists and the filters are taken from
+   his source so they behave exactly as on poke-holo.simey.me:
+     • holo VARS              ← public/css/cards.css + public/css/cards/base.css
+     • .pc-glare  (glare)     ← base.css  .card__glare  (the generic glare)
+     • .pc-shine  (foil)      ← public/css/cards/shiny-rare.css  .card__shine
+                                (the sunpillar rainbow + glitter foil + grain),
+                                used as the rarity-agnostic "basic" holo — the
+                                per-card clip-path / illusion-mask is dropped so
+                                it reads as foil over any card image.
+
+   The glitter + grain TEXTURES are the real assets from Simey's public/img,
+   vendored under src/assets/holo and referenced via Vite-processed relative
+   url(...) so Vite content-hashes them and keeps the /pokecards/ base correct.
+
+   Both layers live inside .pc-rotator (overflow:hidden) so they clip to the same
+   rounded rect as the art, and both are pointer-events:none so they never steal
+   the pointermove events the card relies on. They default to --card-opacity 0,
+   so the resting tile is exactly the clean image; the component ramps opacity in
+   on hover (gated to hover/fine devices in the @media block below). */
+
+/* Holo variables — from cards.css + base.css. */
+.pc-card {
+  --grain: url('./assets/holo/grain.webp');
+  --glitter: url('./assets/holo/glitter.png');
+  --glittersize: 25%;
+
+  --space: 5%;
+  --angle: 133deg;
+  --imgsize: cover;
+
+  --red: #f80e35;
+  --yellow: #eedf10;
+  --green: #21e985;
+  --blue: #0dbde9;
+  --violet: #c929f1;
+
+  --sunpillar-1: hsl(2, 100%, 73%);
+  --sunpillar-2: hsl(53, 100%, 69%);
+  --sunpillar-3: hsl(93, 100%, 69%);
+  --sunpillar-4: hsl(176, 100%, 76%);
+  --sunpillar-5: hsl(228, 100%, 74%);
+  --sunpillar-6: hsl(283, 100%, 73%);
+
+  --sunpillar-clr-1: var(--sunpillar-1);
+  --sunpillar-clr-2: var(--sunpillar-2);
+  --sunpillar-clr-3: var(--sunpillar-3);
+  --sunpillar-clr-4: var(--sunpillar-4);
+  --sunpillar-clr-5: var(--sunpillar-5);
+  --sunpillar-clr-6: var(--sunpillar-6);
+}
+
+/* Shared shine/glare scaffolding — base.css. The shine is the foil layer
+   (rainbow + glitter), the glare is the bright specular spot. Both stack into
+   the rotator grid cell above the <img> (z-index) and are bounded by the
+   rotator's own rounded clip. Opacity is driven by --card-opacity so they fade
+   with hover. */
+.pc-shine,
+.pc-glare {
+  display: grid;
+  will-change: transform, opacity, background-image, background-size,
+    background-position, background-blend-mode, filter;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* SHINE — base.css .card__shine wrapper (filter/blend/opacity) plus the
+   v-regular .card__shine background stack as the generic foil: the GRAIN texture
+   (brushed-metal base) screen-blended under the sunpillar rainbow + the diagonal
+   light/dark "pillar" gradient, with a pointer-tracked darkening radial. This is
+   the rarity-agnostic foil — no per-card clip-path/illusion-mask. */
+.pc-shine {
+  --imgsize: 300px;
+  /* z-index (not translateZ) stacks the holo now that the rotator is a flat
+     context: glare (4) > shine (3) > shine::after glitter (via grid order) > img. */
+  z-index: 3;
+  background-color: transparent;
+  opacity: var(--card-opacity);
+
+  background-image:
+    var(--grain),
+    repeating-linear-gradient(
+      0deg,
+      var(--sunpillar-clr-1) calc(var(--space) * 1),
+      var(--sunpillar-clr-2) calc(var(--space) * 2),
+      var(--sunpillar-clr-3) calc(var(--space) * 3),
+      var(--sunpillar-clr-4) calc(var(--space) * 4),
+      var(--sunpillar-clr-5) calc(var(--space) * 5),
+      var(--sunpillar-clr-6) calc(var(--space) * 6),
+      var(--sunpillar-clr-1) calc(var(--space) * 7)
+    ),
+    repeating-linear-gradient(
+      var(--angle),
+      #0e152e 0%,
+      hsl(180, 10%, 60%) 3.8%,
+      hsl(180, 29%, 66%) 4.5%,
+      hsl(180, 10%, 60%) 5.2%,
+      #0e152e 10%,
+      #0e152e 12%
+    ),
+    radial-gradient(
+      farthest-corner circle at var(--pointer-x) var(--pointer-y),
+      hsla(0, 0%, 0%, 0.1) 12%,
+      hsla(0, 0%, 0%, 0.15) 20%,
+      hsla(0, 0%, 0%, 0.25) 120%
+    );
+
+  background-position:
+    center,
+    0% var(--background-y),
+    var(--background-x) var(--background-y),
+    var(--background-x) var(--background-y);
+
+  background-blend-mode: screen, hue, hard-light;
+  background-size: var(--imgsize) 100%, 200% 700%, 300% 100%, 200% 100%;
+
+  filter: brightness(0.8) contrast(2.95) saturate(0.65);
+  mix-blend-mode: color-dodge;
+}
+
+/* SHINE :before / :after — shiny-rare counter-shifted second foil pass +
+   a soft white highlight under the pointer, for depth. */
+.pc-shine::before,
+.pc-shine::after {
+  content: '';
+  grid-area: 1 / 1;
+  border-radius: inherit;
+}
+
+/* :after — the GLITTER sparkle pass (rainbow-holo / shiny pattern). The glitter
+   texture is soft-light-blended over a counter-shifted rainbow so it sparkles
+   and shifts under the pointer; exclusion blend lets it sit over the grain base
+   without washing the art out. This is the second texture that makes it foil. */
+.pc-shine::after {
+  /* glitter sparkle pass sits above the ::before white highlight (z-index 1) */
+  z-index: 2;
+
+  background-image:
+    var(--glitter),
+    repeating-linear-gradient(
+      0deg,
+      var(--sunpillar-clr-1) calc(var(--space) * 1),
+      var(--sunpillar-clr-2) calc(var(--space) * 2),
+      var(--sunpillar-clr-3) calc(var(--space) * 3),
+      var(--sunpillar-clr-4) calc(var(--space) * 4),
+      var(--sunpillar-clr-5) calc(var(--space) * 5),
+      var(--sunpillar-clr-6) calc(var(--space) * 6),
+      var(--sunpillar-clr-1) calc(var(--space) * 7)
+    ),
+    repeating-linear-gradient(
+      var(--angle),
+      #0e152e 0%,
+      hsl(180, 10%, 60%) 3.8%,
+      hsl(180, 29%, 66%) 4.5%,
+      hsl(180, 10%, 60%) 5.2%,
+      #0e152e 10%,
+      #0e152e 12%
+    ),
+    radial-gradient(
+      farthest-corner circle at var(--pointer-x) var(--pointer-y),
+      hsla(0, 0%, 0%, 0.1) 12%,
+      hsla(0, 0%, 0%, 0.15) 20%,
+      hsla(0, 0%, 0%, 0.25) 120%
+    );
+
+  background-position:
+    calc(50% - ((var(--glittersize) * 2) * var(--pointer-from-left)) - var(--glittersize))
+      calc(50% - ((var(--glittersize) * 2) * var(--pointer-from-top)) - var(--glittersize)),
+    0% var(--background-y),
+    calc((var(--background-x) + (var(--background-y) * 0.2)) * -1)
+      calc(var(--background-y) * -1),
+    var(--background-x) var(--background-y);
+
+  background-blend-mode: soft-light, hue, hard-light;
+  background-size: var(--glittersize) var(--glittersize), 200% 400%, 195% 100%,
+    200% 100%;
+
+  filter: brightness(calc((var(--pointer-from-center) * 0.4) + 0.8))
+    contrast(1.5) saturate(1.25);
+  mix-blend-mode: exclusion;
+}
+
+.pc-shine::before {
+  z-index: 1;
+  background-image: radial-gradient(
+    farthest-corner circle at var(--pointer-x) var(--pointer-y),
+    hsl(0, 0%, 100%) 0%,
+    hsla(0, 0%, 0%, 0) 40%
+  );
+  background-position: center;
+  background-size: cover;
+  mix-blend-mode: overlay;
+  opacity: 0.75;
+}
+
+/* GLARE — base.css .card__glare: a bright specular spot that tracks the
+   pointer, overlay-blended so it reads as sheen rather than a flat wash. */
+.pc-glare {
+  /* topmost holo layer via z-index (was translateZ in the old preserve-3d setup) */
+  z-index: 4;
+  background-image: radial-gradient(
+    farthest-corner circle at var(--pointer-x) var(--pointer-y),
+    hsla(0, 0%, 100%, 0.8) 10%,
+    hsla(0, 0%, 100%, 0.65) 20%,
+    hsla(0, 0%, 0%, 0.5) 90%
+  );
+  opacity: var(--card-opacity);
+  mix-blend-mode: overlay;
+}
+
+/* ============================================================================
+   CATEGORY-TIERED HOLO — gate the SHINY foil layer by the card's category.
+   Mirrors Simey's own rarity model: common cards get glare + tilt only, while
+   the holo-rares get the full foil. The pointer JS is shared (one variable
+   contract for all cards); ONLY these visual layers differ, scoped via the
+   [data-category] attribute that PokemonCard.tsx writes onto .pc-card.
+
+     • special  → FULL holo: the .pc-shine foil (sunpillar rainbow + glitter
+                  sparkle + grain) stays exactly as ported above, plus glare +
+                  tilt. Unchanged.
+     • pokemon / poketool → the "basic/common" treatment: KEEP the 3D tilt and
+                  glare, but turn OFF the shiny foil — .pc-shine (and both its
+                  ::before/::after passes: rainbow + glitter sparkle + white
+                  highlight) are removed from the render tree with display:none,
+                  so there is no rainbow and no glitter, and nothing animates or
+                  composites for that layer. The glare is also toned down a touch
+                  so the common cards read as subtle sheen, not full foil.
+
+   Tilt (.pc-rotator) and the Simey var contract are untouched for every
+   category — only the foil's presence and the glare strength change here. */
+.pc-card:not([data-category='special']) .pc-shine {
+  display: none;
+}
+
+/* Belt-and-braces: even if the layer were ever forced visible, neutralise the
+   foil entirely for the common tiers (no opacity, no blend, no animation) so
+   pokemon/poketool can never show rainbow or sparkle. */
+.pc-card:not([data-category='special']) .pc-shine,
+.pc-card:not([data-category='special']) .pc-shine::before,
+.pc-card:not([data-category='special']) .pc-shine::after {
+  opacity: 0;
+  background-image: none;
+  mix-blend-mode: normal;
+}
+
+/* Common tiers keep a glare, just dialled back so it reads as a gentle sheen
+   rather than the full specular pop the specials get. */
+.pc-card:not([data-category='special']) .pc-glare {
+  opacity: calc(var(--card-opacity) * 0.55);
+}
+
+/* ============================================================================
+   SPECIALS — holo foil + badge + border chrome removed; tiles are image-only and
+   show the card's own corners, so specials differ only by a warmer gold glow
+   around the drop-shadow (no border to avoid fighting the baked-in card edge).
+   ========================================================================== */
+/* Specials are frameless too (no coral border now) but keep a warmer colorful
+   double glow so the full-foil tiles still read as the "rare/shiny" tier. */
+.pc-card--special {
+  box-shadow:
+    0 14px 30px -14px rgba(255, 84, 112, 0.5),
+    0 0 22px -6px var(--sun-deep);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pc-card--special:hover {
+    box-shadow:
+      0 22px 44px -16px rgba(255, 84, 112, 0.6),
+      0 0 34px -4px var(--sun);
+  }
+}
+
+/* ============================================================================
+   HOLO INTERACTION — hover-only, gated to hover-capable, fine-pointer devices.
+   The tilt itself lives on .pc-rotator (driven by --rotate-x/y, which are 0 at
+   rest → identity transform → zero layout/scrollHeight impact). Here we add the
+   while-interacting scale pop + z-index lift + box-shadow, and we HARD-GATE the
+   holo so it only ever shows on hover/fine devices.
+
+   Outside hover/fine devices (touch/coarse), --card-opacity is pinned to 0 and
+   --card-scale to 1, so the shine/glare stay fully invisible and the card stays
+   a static clean image regardless of any stray pointer writes.
+   ========================================================================== */
+@media not all and (hover: hover) and (pointer: fine) {
+  .pc-card {
+    --card-opacity: 0 !important;
+    --card-scale: 1 !important;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* The component sets --card-scale to 1.05 only while interacting (via the
+     .is-interacting bump below); the rotator reads it alongside the tilt so the
+     two compose into one transform. */
+  .pc-card.is-interacting {
+    --card-scale: 1.05;
+    z-index: 2; /* lift the hovered card above its neighbours during tilt */
+    box-shadow:
+      0 24px 42px -16px rgba(43, 143, 255, 0.55),
+      0 0 26px -6px var(--accent-glow);
+  }
+
+  .pc-card--special.is-interacting {
+    box-shadow:
+      0 24px 46px -16px rgba(255, 84, 112, 0.6),
+      0 0 34px -4px var(--sun);
+  }
+}
+
+/* ============================================================================
+   CARD MOUNT — intentionally NO entrance animation.
+   VirtuosoGrid unmounts off-screen rows and remounts them on scroll-in, so any
+   mount keyframe (fade/rise) would REPLAY on every re-entry → blink/flicker.
+   Tiles must be fully opaque and un-animated from first paint; only the :hover
+   lift transition above remains (it never fires on mount). So we hard-pin the
+   resting state here to guarantee computed animation-name:none + opacity:1.
+   ========================================================================== */
+.pc-card {
+  animation: none;
+  opacity: 1;
+}
+
+/* ============================================================================
+   REDUCED MOTION — disable every non-essential animation/transition
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  /* Kill every idle/bouncy keyframe (header glyph bob, empty-state blob bob). */
+  .pokeball-glyph,
+  .pc-card,
+  .grid-status--empty .grid-status-emoji {
+    animation: none !important;
+  }
+  /* Kill the springy hover transitions across the playful shell so nothing
+     scales/lifts/rotates on hover or focus under reduced-motion. */
+  .pc-card,
+  .pc-rotator,
+  .pc-shine,
+  .pc-glare,
+  .tab,
+  .tab::after,
+  .brand-home,
+  .filter-trigger,
+  .detail-back,
+  .detail-notfound-link,
+  .detail-hero-button,
+  .chip-link,
+  .chip-evolve,
+  .chip-similar,
+  .printing-row {
+    transition: none !important;
+    transform: none !important;
+  }
+  /* Kill the 3D tilt/scale entirely — no motion, even while interacting. The
+     card stays flat regardless of pointer position. */
+  .pc-rotator {
+    transform: none !important;
+  }
+  .pc-card,
+  .pc-card.is-interacting {
+    --card-scale: 1 !important;
+  }
+  /* No moving foil/glare either — pin the holo invisible so the resting clean
+     image is all that's ever shown. */
+  .pc-card,
+  .pc-card.is-interacting {
+    --card-opacity: 0 !important;
+  }
+  .detail-hero-spinner {
+    animation: none !important;
+  }
+}
+
+/* ============================================================================
+   CARD DETAIL PAGE (#/card/:id) — its own standalone view (NO tab bar). Themed
+   dark/gold, responsive, and scrolls normally (it is not virtualized). The
+   shared brand header sits above it (rendered by App); everything below is the
+   back affordance + the full card record rendered from the CardDetail shape.
+   ========================================================================== */
+
+/* Energy / type symbols are real per-type icons now (a vendored MIT SVG set —
+   see src/energyIcons.ts + src/assets/energy/), each a self-colored disc, so the
+   per-type hues live in the icons themselves rather than as CSS vars/classes
+   here. The icon wrappers (.type-pill / .type-icon / .energy-pip) are defined
+   further down with the rest of the detail-page chrome. */
+
+.detail-page {
+  /* Subtle bottom padding so the last section never kisses the viewport edge
+     when scrolled fully down. */
+  padding-bottom: 2.5rem;
+}
+
+.detail-container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 0;
+}
+
+/* --- Back affordance ------------------------------------------------------- */
+.detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 1.25rem;
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--sky-deep);
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  outline: none;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .detail-back:hover {
+    color: var(--sky-deep);
+    border-color: var(--sky);
+    /* scale + color/shadow only — no translateY lift (round-2). */
+    transform: scale(1.03);
+    box-shadow: var(--shadow-sky);
+  }
+}
+
+.detail-back:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+}
+
+.detail-back span[aria-hidden='true'] {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+/* ============================================================================
+   RELATED GRID VIEW (RelatedGridView.tsx) — the intermediate "by role" /
+   "related to <name>" drill-down reached from the detail page. Its own page (no
+   tab bar): a header band (back + heading + match count) above the SHARED
+   search/filter bar + virtualized grid (FilterableGrid). The header is
+   flex-shrink-0 so the grid below keeps the measurable height VirtuosoGrid
+   needs; the grid itself spans full width (its own internal px-4 padding).
+   ========================================================================== */
+.related-head {
+  /* The header band is constrained + centered to align with the detail page's
+     reading column, while the grid beneath spans the full width. COMPACT: the
+     back button sits INLINE (a single row) with the heading block beside it,
+     with reduced vertical padding so it doesn't eat the grid's height. */
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0.8rem 1.25rem 0.7rem;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+/* Compact, inline back button (lighter than the detail page's full back button:
+   smaller padding/font, no own row). flex-shrink-0 so it never collapses. */
+.related-back {
+  flex-shrink: 0;
+  margin-bottom: 0;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.84rem;
+}
+
+/* Title + count share a row (wrap on narrow widths) so the header stays short. */
+.related-head-text {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.related-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.3rem;
+  letter-spacing: 0.005em;
+  line-height: 1.15;
+  color: var(--text);
+  margin: 0;
+}
+
+/* The matched value within the heading (the name / role). The role variant
+   reads in the brand coral to match the role chips it was clicked from (the
+   Capitalized display text is produced in JS via formatRoleLabel). */
+.related-title-value {
+  color: var(--sky-deep);
+}
+
+/* The role value is Capitalized in JS (formatRoleLabel) before render, so no
+   CSS text-transform is needed here — only the brand coral color. */
+.related-title-value--role {
+  color: var(--coral-deep);
+}
+
+.related-subtitle {
+  display: inline-flex;
+  align-items: center;
+  /* Centered against the title in the compact inline row (was flex-start for the
+     old stacked layout). */
+  align-self: center;
+  padding: 0.18rem 0.65rem;
+  border-radius: var(--r-pill);
+  background: var(--sun);
+  border: 2px solid var(--sun-deep);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: var(--text);
+  margin: 0;
+}
+
+/* --- Two-column layout: hero card + body. Stacks on narrow screens. -------- */
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .detail-layout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+/* --- HERO card image ------------------------------------------------------- */
+.detail-hero {
+  position: sticky;
+  top: 1rem;
+}
+
+@media (max-width: 720px) {
+  .detail-hero {
+    position: static;
+    justify-self: center;
+    max-width: 300px;
+    width: 100%;
+  }
+}
+
+/* FRAMELESS hero (round-2 polish): the old chunky amber sticker frame (5px
+   border + box background) is gone — the hero is JUST the card scan on the
+   bright shell, mirroring the frameless grid tiles (#5). The image area stays
+   TRANSPARENT so the page atmosphere shows through the letterboxed gaps; a soft
+   colorful drop shadow remains for depth (no border). overflow:hidden keeps the
+   rounded clip + bounds the loading skeleton. The fullscreen-expand affordance
+   (.detail-hero-expand) is unchanged and still appears on hover/focus. */
+.detail-hero-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 600 / 825;
+  border-radius: var(--r-xl);
+  /* TRANSPARENT stage: the page's bright atmosphere shows through instead of a
+     box. The hero image is object-fit:contain (letterboxed); the detail hero
+     runs NO holo (the foil only runs in the fullscreen lightbox), so
+     transparency can't gut any effect here. The loading skeleton below still
+     paints its own surface while decoding. */
+  background: transparent;
+  border: 0 solid transparent;
+  box-shadow:
+    0 22px 44px -20px rgba(245, 158, 11, 0.5),
+    0 0 30px -10px var(--stage-glow);
+  overflow: hidden;
+}
+
+/* The hero frame is now a real <button> (opens the fullscreen lightbox). Strip
+   the UA button chrome (font/padding/text-align/appearance) so it stays visually
+   identical to the old framed <div>, then layer on the interactive affordances:
+   a zoom cursor, a gentle lift on hover, and a keyboard focus ring (litewind has
+   no focus-visible variants). The .detail-hero-frame rule above still supplies
+   the border/radius/shadow/overflow, so only the button-reset + interaction live
+   here. */
+.detail-hero-button {
+  display: block;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+  /* No transform transition — the hero must not slide/lift on hover (round-2:
+     translation motion removed). Only the drop shadow eases for hover feedback. */
+  transition: box-shadow 200ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* Hover feedback WITHOUT position shift: a brighter, larger colorful drop
+     shadow (no translate, no border). */
+  .detail-hero-button:hover {
+    box-shadow:
+      0 30px 54px -22px rgba(255, 84, 112, 0.5),
+      0 0 38px -8px var(--stage-glow);
+  }
+
+  /* Reveal the expand hint on hover/focus so the hero visibly reads as openable. */
+  .detail-hero-button:hover .detail-hero-expand,
+  .detail-hero-button:focus-visible .detail-hero-expand {
+    opacity: 1;
+  }
+}
+
+.detail-hero-button:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 3px;
+}
+
+/* A small "expand" glyph badge bottom-right of the hero, hinting it opens
+   fullscreen. Faint by default, brightens on hover/focus (above). */
+.detail-hero-expand {
+  position: absolute;
+  right: 0.6rem;
+  bottom: 0.6rem;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: var(--r-pill);
+  background: var(--sun);
+  border: 2px solid var(--sun-deep);
+  color: var(--text);
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.5);
+  transition: opacity 180ms ease;
+}
+
+.detail-hero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+
+.detail-hero-img[data-status='loaded'] {
+  opacity: 1;
+}
+
+.detail-hero-skeleton {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  /* dark stage skeleton (matches the dark hero frame, not the bright shell) */
+  background: linear-gradient(
+    135deg,
+    var(--stage) 0%,
+    var(--stage-2) 50%,
+    var(--stage) 100%
+  );
+}
+
+.detail-hero-fallback {
+  color: #9aa3bd;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.detail-hero-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid var(--stage-line);
+  border-top-color: var(--sun);
+  animation: detail-spin 0.8s linear infinite;
+}
+
+@keyframes detail-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --- BODY ------------------------------------------------------------------ */
+.detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+/* HEAD */
+.detail-head-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.detail-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(2rem, 4.5vw, 2.9rem);
+  letter-spacing: 0.005em;
+  line-height: 1.05;
+  color: var(--text);
+  margin: 0;
+}
+
+.detail-hp {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--r-pill);
+  background: var(--coral);
+  border: 2px solid var(--coral-deep);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.2rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.detail-hp-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.detail-head-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+/* SET + EXPANSION row, just under the type/subtype meta. A pair of clickable
+   pills (Set / Series) that drill into the global filtered grids. They read as
+   small "origin" tags — a tiny uppercase facet label + the value — distinct
+   from the type/subtype chips above so the printing's provenance stands out and
+   updates live with the printing switcher. */
+.detail-head-origin {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.origin-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 2px solid var(--border-strong);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 140ms ease;
+}
+
+/* Tiny uppercase facet label ("SET" / "SERIES"); the value reads in the chip's
+   normal weight/color. */
+.origin-chip-label {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.origin-chip-value {
+  line-height: 1;
+}
+
+/* Set = sky-tinted; Series = sun/gold-tinted. Both stay readable on light. */
+.origin-chip--set {
+  background: var(--surface-sky);
+  border-color: var(--sky);
+}
+
+.origin-chip--set .origin-chip-label {
+  color: var(--sky-deep);
+}
+
+.origin-chip--series {
+  background: var(--surface-2);
+  border-color: var(--sun-deep);
+}
+
+.origin-chip--series .origin-chip-label {
+  color: var(--sun-deep);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .origin-chip--set:hover {
+    border-color: var(--sky);
+    transform: scale(1.05);
+    box-shadow: 0 10px 20px -8px rgba(43, 143, 255, 0.45);
+  }
+  .origin-chip--series:hover {
+    border-color: var(--sun-deep);
+    transform: scale(1.05);
+    box-shadow: 0 10px 20px -8px rgba(245, 158, 11, 0.45);
+  }
+}
+
+.origin-chip--set:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+}
+
+.origin-chip--series:focus-visible {
+  outline: 3px solid var(--sun-deep);
+  outline-offset: 2px;
+}
+
+/* --- Sections -------------------------------------------------------------- */
+.detail-section {
+  border-top: 3px dashed var(--border);
+  padding-top: 1.25rem;
+}
+
+.detail-section-title {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sky-deep);
+  margin: 0 0 0.85rem;
+}
+
+.detail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+/* --- Type tags & energy pips (real per-type icons) -------------------------
+   The energy symbols are recognizable per-type SVG icons (vendored MIT set, see
+   src/assets/energy/), each a self-colored disc. So the type's color identity
+   comes from the icon itself — these wrappers only handle layout/sizing and the
+   surrounding chrome, not the color. */
+
+/* Type tag: icon + label, on a neutral surface chip (the icon supplies color).
+   Used for head type badges and weaknesses/resistances ("Type ×2"). */
+.type-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.75rem 0.28rem 0.45rem;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 2px solid var(--border-strong);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.01em;
+  box-shadow: var(--shadow-soft);
+}
+
+.type-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  flex-shrink: 0;
+  display: block;
+  /* a soft white ring so the bright icon discs read as stickers on the surface */
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.type-pill-label {
+  line-height: 1;
+}
+
+/* A type badge rendered as a real <Link> (the head type drill-down → the global
+   "by type" grid). Keeps the .type-pill look; only layers on the link reset +
+   hover/focus + pointer cursor so it reads as clickable. Mirrors .chip-link /
+   .chip-evolve (scale + shadow on hover, no translate/rotate — round-2 look).
+   Used together as `.type-pill .type-pill--link`. */
+.type-pill--link {
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 140ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .type-pill--link:hover {
+    border-color: var(--sky);
+    transform: scale(1.05);
+    box-shadow: 0 10px 20px -8px rgba(43, 143, 255, 0.45);
+  }
+}
+
+.type-pill--link:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+}
+
+/* Energy pip: the type's icon disc, used for attack costs + retreat cost. */
+.energy-pip {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  display: block;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.85),
+    0 4px 10px -4px rgba(43, 33, 80, 0.4);
+}
+
+/* --- Generic chips (subtypes / role / evolves / similar) ------------------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.32rem 0.8rem;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 2px solid var(--border-strong);
+  color: var(--text-dim);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}
+
+.chip-subtype {
+  color: var(--text);
+  background: var(--surface-sky);
+  border-color: var(--sky);
+}
+
+.chip-role {
+  color: #ffffff;
+  border-color: var(--coral-deep);
+  background: var(--coral);
+  /* Display text is Capitalized in JS (formatRoleLabel); no CSS transform. */
+}
+
+.chip-similar {
+  text-decoration: none;
+  background: var(--surface-2);
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chip-similar:hover {
+    color: var(--sky-deep);
+    border-color: var(--sky);
+    transform: scale(1.04);
+  }
+}
+
+.chip-similar:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+}
+
+/* A chip rendered as a real <Link> (role drill-down): keep the chip look, add
+   the interactive affordances. .chip-role already supplies the gold palette; we
+   only layer on the link reset + hover/focus + a pointer cursor so it reads as
+   clickable. Used together as `.chip .chip-role .chip-link`. */
+.chip-link {
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 140ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chip-link:hover {
+    /* scale + shadow only — no translateY lift or rotate wobble (round-2). */
+    transform: scale(1.05);
+    box-shadow: 0 10px 20px -8px rgba(255, 84, 112, 0.5);
+  }
+}
+
+.chip-link:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+}
+
+/* A clickable evolution name (→ the global "related" grid). Reads like a chip
+   but interactive on hover/focus, mirroring .chip-similar. The name keeps the
+   body font so it matches the displayed Pokémon name. */
+.chip-evolve {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--sun-deep);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chip-evolve:hover {
+    color: var(--text);
+    border-color: var(--sun-deep);
+    background: var(--sun);
+    transform: scale(1.05);
+  }
+}
+
+.chip-evolve:focus-visible {
+  outline: 3px solid var(--sun-deep);
+  outline-offset: 2px;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* --- Attacks --------------------------------------------------------------- */
+.attack-row {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 0.85rem 1rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.attack-line {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.attack-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.attack-cost-none {
+  color: var(--text-faint);
+}
+
+.attack-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+
+.attack-damage {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.3rem;
+  color: var(--coral-deep);
+  flex-shrink: 0;
+}
+
+.attack-text {
+  margin: 0.55rem 0 0;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+/* --- Abilities ------------------------------------------------------------- */
+.ability-row {
+  background: var(--surface);
+  border: 2px solid var(--grape);
+  border-radius: var(--r-md);
+  padding: 0.85rem 1rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.ability-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chip-ability-kind {
+  color: #ffffff;
+  border-color: #7c3aed;
+  background: var(--grape);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+}
+
+.ability-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.ability-text {
+  margin: 0.55rem 0 0;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+/* --- Stat grid: weakness / resistance / retreat ---------------------------- */
+.stat-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.stat-label {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sun-deep);
+}
+
+.stat-values {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.retreat-pips .energy-pip {
+  /* the colorless retreat pips read a touch dimmer than attack costs */
+  opacity: 0.92;
+}
+
+/* --- Evolves --------------------------------------------------------------- */
+.evolves-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.evolves-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.evolves-label {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sun-deep);
+  min-width: 2.6rem;
+}
+
+/* --- Printings ------------------------------------------------------------- */
+.printings-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.printing-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-soft);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .printing-row:hover {
+    border-color: var(--sky);
+  }
+}
+
+.printing-row:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+}
+
+.printing-thumb {
+  width: 40px;
+  height: 55px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  /* the printing thumb is a card scan, so keep its backdrop dark */
+  background: var(--stage);
+  border: 2px solid var(--stage-line);
+}
+
+.printing-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.printing-set {
+  color: var(--text);
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.printing-number {
+  color: var(--text-dim);
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+/* ============================================================================
+   RULES — Trainer/Tool rules text (poketools). Reuses .detail-list spacing;
+   each rule is a bordered surface row to match abilities/attacks.
+   ========================================================================== */
+.rules-list .rule-row {
+  background: var(--surface);
+  border: 2px solid var(--sky);
+  border-radius: var(--r-md);
+  padding: 0.85rem 1rem;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  box-shadow: var(--shadow-soft);
+}
+
+/* ============================================================================
+   GRID / DETAIL STATUS — loading, error, empty ("coming soon"), not-found.
+   Centered, themed states that fill the leftover height so the layout never
+   collapses or shows a raw error. Used by CardGrid and CardDetailPage.
+   ========================================================================== */
+.grid-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  height: 100%;
+  min-height: 40vh;
+  padding: 2rem 1.25rem;
+  text-align: center;
+}
+
+/* A chunky friendly spinner (sky ring + sunny sweep). */
+.grid-status-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 4px solid var(--accent-soft);
+  border-top-color: var(--sky);
+  animation: detail-spin 0.8s linear infinite;
+}
+
+.grid-status-text {
+  color: var(--text-dim);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+}
+
+.grid-status-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--coral);
+}
+
+/* "Coming soon" / not-found flourish + heading — a big bouncy emoji blob. */
+.grid-status--empty .grid-status-emoji {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: var(--r-pill);
+  background: var(--sun);
+  border: 3px solid var(--sun-deep);
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--text);
+  box-shadow: var(--shadow-sun);
+  animation: status-bob 2.4s ease-in-out infinite;
+}
+
+/* Round-2: idle rotate-only wiggle (the vertical bob / position shift removed). */
+@keyframes status-bob {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+
+.grid-status-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: 0.005em;
+  color: var(--text);
+}
+
+/* Back-to-grid link on the not-found detail state — mirrors a chip/button. */
+.detail-notfound-link {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  border: 2px solid var(--sky-deep);
+  border-radius: var(--r-pill);
+  background: var(--sky);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  box-shadow: var(--shadow-sky);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .detail-notfound-link:hover {
+    transform: scale(1.04);
+  }
+}
+
+.detail-notfound-link:focus-visible {
+  outline: 3px solid var(--coral);
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   FULLSCREEN CARD LIGHTBOX (CardLightbox.tsx) — a modal overlay opened from the
+   detail hero. A fixed full-viewport backdrop with the card enlarged + centered,
+   running the SHARED pointer-tracked holo (same .pc-card / .pc-rotator / shine /
+   glare layers + useHoloPointer hook as the grid). Closes on Escape / backdrop
+   click; clicking the card itself does not close.
+   ========================================================================== */
+
+/* Visually-hidden accessible name for the dialog (litewind's sr-only coverage is
+   not relied on — owned here). Standard clip pattern. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Backdrop = the dialog root. Fixed over the whole viewport, above EVERYTHING —
+   incl. the shared topbar (header + tabs). The component portals this node to
+   document.body (see CardLightbox.tsx) so it escapes RouteFade's stacking
+   context; this very-high z-index is a belt-and-braces guarantee it paints above
+   the header (z-index 1) and the filter popovers (which top out at z-index 20),
+   even though the portal alone already lifts it out of any clipping ancestor.
+   Dim + a faint gold-tinted vignette to match the app atmosphere; clicking it
+   closes (cursor hints that). */
+.lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  /* DARK stage backdrop (preserved): the lightbox holo must pop on dark. The
+     vignette carries faint brand-color tints at the corners so it still feels
+     part of the playful app, but stays deep + dim around the card. */
+  background:
+    radial-gradient(
+      70% 60% at 0% 0%,
+      rgba(255, 196, 0, 0.16) 0%,
+      rgba(8, 10, 15, 0) 50%
+    ),
+    radial-gradient(
+      70% 60% at 100% 100%,
+      rgba(255, 84, 112, 0.16) 0%,
+      rgba(8, 10, 15, 0) 50%
+    ),
+    radial-gradient(
+      120% 90% at 50% 50%,
+      rgba(43, 143, 255, 0.1) 0%,
+      rgba(8, 10, 15, 0.85) 55%,
+      rgba(6, 8, 12, 0.94) 100%
+    );
+  cursor: zoom-out;
+  outline: none;
+  animation: lightbox-fade 180ms ease both;
+}
+
+.lightbox-backdrop:focus-visible {
+  outline: none;
+}
+
+@keyframes lightbox-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The enlarged holo card. Reuses .pc-card (the holo var contract + holo layer
+   scaffolding); this modifier only changes GEOMETRY: it's sized large + centered
+   rather than filling a grid column. Width is viewport-driven but capped by the
+   available height at the card's native 600/825 ratio, so the card scales to fit
+   without overflowing — the inner .pc-thumb keeps its width-driven aspect-ratio
+   box, so the holo geometry/clip is identical to the grid, just bigger. The card
+   carries cursor:auto so it doesn't inherit the backdrop's zoom-out (clicking the
+   card doesn't close). */
+.pc-card--lightbox {
+  width: min(86vw, calc((100vh - 6rem) * 600 / 825));
+  max-width: 460px;
+  margin: 0;
+  cursor: default;
+  /* Inherits the bright .pc-card sticker frame (white border + dark inset
+     stage), scaled up: a chunkier frame + larger radius for the big card. */
+  padding: 8px;
+  border-width: 5px;
+  border-color: var(--sun);
+  border-radius: var(--r-xl);
+  /* A bigger drop shadow + warm colorful halo so the framed card reads as lifted
+     off the dimmed backdrop. The holo glare/foil still composite on top. */
+  box-shadow:
+    0 40px 90px -30px rgba(0, 0, 0, 0.95),
+    0 0 70px -14px var(--stage-glow);
+  animation: lightbox-pop 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes lightbox-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Scale the geometry box's radius + perspective up to match the larger card. The
+   grid tile uses a 750px perspective at ~180px wide; at lightbox scale a deeper
+   perspective keeps the pointer tilt feeling natural rather than extreme. */
+.pc-card--lightbox .pc-thumb {
+  border-radius: var(--r-lg);
+  perspective: 1600px;
+  /* The hero image is `object-fit: contain` (full card, letterboxed) elsewhere,
+     but the grid .pc-thumb-img uses cover. Here the card images are the same
+     hires scans the grid uses, so cover fills the 600/825 box cleanly. Keep the
+     stage DARK for the brief pre-decode moment + so the holo pops. */
+  background-color: var(--stage);
+}
+
+.pc-card--lightbox .pc-rotator {
+  border-radius: var(--r-lg);
+}
+
+/* While interacting, the shared grid rule swaps in its own (smaller) gold-glow
+   box-shadow; keep the lightbox card's larger lifted shadow instead. Same
+   specificity-tie + later-source-order pattern used for the foil restore. */
+@media (hover: hover) and (pointer: fine) {
+  .pc-card.pc-card--lightbox.is-interacting {
+    border-color: var(--sun);
+    box-shadow:
+      0 40px 90px -30px rgba(0, 0, 0, 0.95),
+      0 0 80px -12px var(--stage-glow);
+  }
+}
+
+/* Reduced motion: skip the entrance animations (the holo itself is already
+   pinned off for .pc-card under prefers-reduced-motion above). */
+@media (prefers-reduced-motion: reduce) {
+  .lightbox-backdrop,
+  .pc-card--lightbox {
+    animation: none !important;
+  }
+}
