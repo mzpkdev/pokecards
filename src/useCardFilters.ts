@@ -28,6 +28,8 @@ export const PARAM = {
   set: 'set',
   series: 'series',
   role: 'role',
+  cardClass: 'cardClass',
+  gen: 'gen',
 } as const
 
 // The distinct option lists available for the active category. Each facet list
@@ -39,6 +41,12 @@ export type FacetOptions = {
   sets: string[]
   series: string[]
   roles: string[]
+  // Curated card-class labels (Specials tab only — empty elsewhere, which hides
+  // the facet). Distinct values from each card's derived cardClass[].
+  cardClasses: string[]
+  // Generation labels (species tabs only — empty on Poketools, which hides the
+  // facet). Sorted numerically (Gen 1…Gen 9) with "Unknown" LAST, never alpha.
+  generations: string[]
 }
 
 // The parsed, normalized filter state read out of the URL. Arrays are the
@@ -50,6 +58,8 @@ export type CardFilters = {
   sets: string[]
   series: string[]
   roles: string[]
+  cardClasses: string[]
+  generations: string[]
 }
 
 // Splits a comma-joined multi-value param into a clean string[] (trimmed,
@@ -81,6 +91,8 @@ export function parseFilters(params: URLSearchParams): CardFilters {
     sets: parseList(params.get(PARAM.set)),
     series: parseList(params.get(PARAM.series)),
     roles: parseList(params.get(PARAM.role)),
+    cardClasses: parseList(params.get(PARAM.cardClass)),
+    generations: parseList(params.get(PARAM.gen)),
   }
 }
 
@@ -95,6 +107,8 @@ export function countActive(filters: CardFilters): number {
   if (filters.sets.length) n += 1
   if (filters.series.length) n += 1
   if (filters.roles.length) n += 1
+  if (filters.cardClasses.length) n += 1
+  if (filters.generations.length) n += 1
   return n
 }
 
@@ -127,6 +141,8 @@ export function useCardFilters(
     const sets = new Set<string>()
     const series = new Set<string>()
     const roles = new Set<string>()
+    const cardClasses = new Set<string>()
+    const generations = new Set<string>()
 
     for (const card of cards) {
       for (const t of card.types) types.add(t)
@@ -134,15 +150,28 @@ export function useCardFilters(
       for (const s of card.sets) sets.add(s)
       for (const s of card.series) series.add(s)
       for (const r of card.roles) roles.add(r)
+      for (const c of card.cardClass) cardClasses.add(c)
+      for (const g of card.generations) generations.add(g)
     }
 
     const sortAlpha = (a: string, b: string) => a.localeCompare(b)
+    // Gen options sort NUMERICALLY (Gen 1…Gen 9, and any future Gen 10+) with
+    // "Unknown" pinned LAST — never plain-alpha (which would put Gen 10 before
+    // Gen 2 and "Unknown" mid-list). We extract the trailing integer from the
+    // "Gen N" label; a non-numeric label (i.e. "Unknown") sorts to +∞.
+    const genRank = (label: string) => {
+      const n = Number.parseInt(label.replace(/^\D+/, ''), 10)
+      return Number.isNaN(n) ? Number.POSITIVE_INFINITY : n
+    }
+    const sortGen = (a: string, b: string) => genRank(a) - genRank(b)
     return {
       types: [...types].sort(sortAlpha),
       subtypes: [...subtypes].sort(sortAlpha),
       sets: [...sets].sort(sortAlpha),
       series: [...series].sort(sortAlpha),
       roles: [...roles].sort(sortAlpha),
+      cardClasses: [...cardClasses].sort(sortAlpha),
+      generations: [...generations].sort(sortGen),
     }
   }, [cards])
 
@@ -162,6 +191,8 @@ export function useCardFilters(
     const setsLower = filters.sets.map((v) => v.toLowerCase())
     const seriesLower = filters.series.map((v) => v.toLowerCase())
     const rolesLower = filters.roles.map((v) => v.toLowerCase())
+    const cardClassesLower = filters.cardClasses.map((v) => v.toLowerCase())
+    const generationsLower = filters.generations.map((v) => v.toLowerCase())
 
     const noConstraints =
       !query &&
@@ -169,7 +200,9 @@ export function useCardFilters(
       subtypesLower.length === 0 &&
       setsLower.length === 0 &&
       seriesLower.length === 0 &&
-      rolesLower.length === 0
+      rolesLower.length === 0 &&
+      cardClassesLower.length === 0 &&
+      generationsLower.length === 0
     // Fast path: nothing selected → return the input array reference so
     // VirtuosoGrid sees an unchanged `data` prop (no needless re-render churn).
     if (noConstraints) return cards
@@ -181,6 +214,8 @@ export function useCardFilters(
       if (!matchesFacet(card.sets, setsLower)) return false
       if (!matchesFacet(card.series, seriesLower)) return false
       if (!matchesFacet(card.roles, rolesLower)) return false
+      if (!matchesFacet(card.cardClass, cardClassesLower)) return false
+      if (!matchesFacet(card.generations, generationsLower)) return false
       return true
     })
   }, [cards, filters])

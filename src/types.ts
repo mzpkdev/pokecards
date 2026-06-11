@@ -83,6 +83,12 @@ export type CardDetail = {
   retreat_cost?: string[]
   // Trainer/Tool rules text (poketools.json). Pokémon records don't have this.
   rules?: string[]
+  // National Pokédex number(s) for the species on this card. Backfilled into
+  // pokemon.json + specials.json from pokemontcg.io (gap-filled via PokéAPI).
+  // An array because TAG TEAM / multi-species cards legitimately carry 2+ (e.g.
+  // Pikachu & Zekrom-GX → [25, 644]). Absent on poketools.json (Trainer/Item
+  // cards have no species), so optional; an empty [] means "unknown".
+  national_pokedex?: number[]
   role: string[]
   similar: string[]
   printings: Printing[]

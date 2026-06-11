@@ -276,6 +276,26 @@ export default function SearchFilterBar({
           onToggle={(v) => toggle(PARAM.subtype, filters.subtypes, v)}
           onClear={() => setList(PARAM.subtype, [])}
         />
+        {/* Card Class — Specials tab only. options.cardClasses is empty for
+            non-special categories, so MultiSelect renders nothing there. */}
+        <MultiSelect
+          label="Card Class"
+          paramKey={PARAM.cardClass}
+          options={options.cardClasses}
+          selected={filters.cardClasses}
+          onToggle={(v) => toggle(PARAM.cardClass, filters.cardClasses, v)}
+          onClear={() => setList(PARAM.cardClass, [])}
+        />
+        {/* Generation — species tabs only (Pokémon + Specials). options.generations
+            is empty on Poketools, so MultiSelect renders nothing there. */}
+        <MultiSelect
+          label="Generation"
+          paramKey={PARAM.gen}
+          options={options.generations}
+          selected={filters.generations}
+          onToggle={(v) => toggle(PARAM.gen, filters.generations, v)}
+          onClear={() => setList(PARAM.gen, [])}
+        />
         <MultiSelect
           label="Set"
           paramKey={PARAM.set}

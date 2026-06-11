@@ -328,6 +328,9 @@ export async function loadCards(category: CardCategory): Promise<PokemonCard[]> 
 //   • me           → "Mega Evolution"     (me1–me4, me2pt5: Mega Evolution,
 //                    Phantasmal Flames, Ascended Heroes, Perfect Order, Chaos
 //                    Rising — all the Mega Evolution era)
+//   • sm, smp, sma → "Sun & Moon"         (sm1–sm12 main sets + sm35/sm75/sm115
+//                    sub-sets; smp = SM Black Star Promos; sma = Hidden Fates
+//                    Shiny Vault — the whole Sun & Moon / GX era)
 // Any family NOT listed here falls back to OTHER_SERIES, so a future setcode
 // never yields an empty series — it lands in "Other" until classified.
 // ============================================================================
@@ -339,6 +342,9 @@ const SERIES_PREFIX: Record<string, string> = {
   cel: 'Celebrations',
   pgo: 'Pokémon GO',
   me: 'Mega Evolution',
+  sm: 'Sun & Moon',
+  smp: 'Sun & Moon',
+  sma: 'Sun & Moon',
 }
 
 // Fallback bucket for any setcode whose alpha family isn't in SERIES_PREFIX.
@@ -354,6 +360,44 @@ export function seriesOf(id: string): string {
   const setcode = id.split('-')[0] ?? ''
   const family = (setcode.match(/^[a-zA-Z]+/)?.[0] ?? setcode).toLowerCase()
   return SERIES_PREFIX[family] ?? OTHER_SERIES
+}
+
+// ============================================================================
+// GENERATION DERIVATION — the data has NO generation field; we DERIVE it from
+// the backfilled National Pokédex number(s) (record.national_pokedex).
+// ----------------------------------------------------------------------------
+// GEN_RANGES is the single hardcoded source of truth: inclusive [min,max] dex
+// ranges per generation (Gen 1 = 1–151 … Gen 9 = 906–1025). genOf(dex) maps one
+// dex number to its "Gen N" label; a dex of 0/NaN or one outside every range
+// (shouldn't happen for real species) → "Unknown". A card with multiple dex
+// numbers (TAG TEAM) maps to multiple gens (see toFilterableCard). Sorting of
+// the gen FACET options is numeric with "Unknown" last (see useCardFilters) so
+// a future "Gen 10" sorts correctly — never plain-alpha.
+// ============================================================================
+export const UNKNOWN_GEN = 'Unknown'
+
+const GEN_RANGES: { label: string; min: number; max: number }[] = [
+  { label: 'Gen 1', min: 1, max: 151 },
+  { label: 'Gen 2', min: 152, max: 251 },
+  { label: 'Gen 3', min: 252, max: 386 },
+  { label: 'Gen 4', min: 387, max: 493 },
+  { label: 'Gen 5', min: 494, max: 649 },
+  { label: 'Gen 6', min: 650, max: 721 },
+  { label: 'Gen 7', min: 722, max: 809 },
+  { label: 'Gen 8', min: 810, max: 905 },
+  { label: 'Gen 9', min: 906, max: 1025 },
+]
+
+/**
+ * Maps a single National Pokédex number → its generation label ("Gen 1" …
+ * "Gen 9"), or UNKNOWN_GEN for a missing/out-of-range number. Exported so any
+ * future consumer shares one classification path (mirrors seriesOf).
+ */
+export function genOf(dex: number): string {
+  for (const r of GEN_RANGES) {
+    if (dex >= r.min && dex <= r.max) return r.label
+  }
+  return UNKNOWN_GEN
 }
 
 // A grid tile PLUS the precomputed fields the filter UI/logic needs. `tile` is
@@ -372,8 +416,25 @@ export type FilterableCard = {
   // setcode prefix (seriesOf). SEPARATE from `sets` (sets = expansion names;
   // series = the broader era a printing belongs to). Empty only if no printings.
   series: string[]
+  // Curated "card class" labels for the Specials tab ONLY, derived from each
+  // card's `subtypes` (see toFilterableCard). Carries BOTH a broad family label
+  // ('ex' / 'GX') AND the specific variant ('Tera ex', 'MEGA', 'Ancient',
+  // 'Future', 'TAG TEAM GX') so a single card can be matched by either — OR
+  // semantics within the facet. ALWAYS [] for non-special categories, which is
+  // what auto-hides this facet on Pokémon/Poketools (zero distinct values →
+  // SearchFilterBar's MultiSelect renders nothing).
+  cardClass: string[]
+  // Distinct generation labels ("Gen 1" … "Gen 9", or "Unknown") derived from
+  // the record's national_pokedex via genOf. SPECIES TABS ONLY (pokemon +
+  // special): a multi-dex card carries multiple gens (e.g. [25,644] →
+  // ["Gen 1","Gen 5"]); an empty/absent dex → ["Unknown"]. ALWAYS [] for the
+  // poketool category (Trainer/Item cards have no species), which auto-hides the
+  // facet there (zero distinct values → MultiSelect renders nothing) — exactly
+  // like cardClass.
+  generations: string[]
   // Precomputed lowercased searchable text: name + attack names/text + ability
-  // names/text + rules text + role. Built once so search is a cheap substring.
+  // names/text + rules text + role + namespaced dex tokens (#25 and #025 forms).
+  // Built once so search is a cheap substring.
   search: string
 }
 
@@ -405,11 +466,64 @@ function toFilterableCard(
   // (e.g. a reprint) can therefore carry more than one series.
   const series = [...new Set(printings.map((p) => seriesOf(p.id)))]
 
+  // Curated "card class" facet — SPECIALS TAB ONLY. For special cards we scan
+  // the raw `subtypes` and push EVERY applicable label: both the broad family
+  // ('ex' / 'GX') and any specific variant ('Tera ex', 'MEGA', …). The overlap
+  // is deliberate: a Tera card yields BOTH 'ex' (broad: all 296) AND 'Tera ex'
+  // (narrow: 66), and OR-within-facet matching lets the user pick either. Same
+  // for MEGA/Ancient/Future (each is also an ex → gets 'ex' + its own label) and
+  // TAG TEAM (also a GX → gets 'GX' + 'TAG TEAM GX'). Non-special categories get
+  // [] so the facet has zero distinct values there and auto-hides.
+  const cardClass: string[] = []
+  if (category === 'special') {
+    if (subtypes.includes('ex')) cardClass.push('ex')
+    if (subtypes.includes('GX')) cardClass.push('GX')
+    if (subtypes.includes('Tera')) cardClass.push('Tera ex')
+    if (subtypes.includes('MEGA')) cardClass.push('MEGA')
+    if (subtypes.includes('Ancient')) cardClass.push('Ancient')
+    if (subtypes.includes('Future')) cardClass.push('Future')
+    if (subtypes.includes('TAG TEAM')) cardClass.push('TAG TEAM GX')
+  }
+
+  // Distinct generation labels for the species TABS ONLY (pokemon + special),
+  // derived from the backfilled national_pokedex via genOf. A multi-dex card
+  // (TAG TEAM) maps each dex to its gen and dedupes (e.g. [25,644] →
+  // ["Gen 1","Gen 5"]); an empty/absent dex → ["Unknown"]. Poketool cards have
+  // no species, so they get [] — zero distinct values auto-hides the facet
+  // there (exactly like cardClass). The gen FACET options are sorted numerically
+  // with "Unknown" last in useCardFilters (never plain-alpha).
+  const generations: string[] =
+    category === 'pokemon' || category === 'special'
+      ? [...new Set((record.national_pokedex ?? []).map((n) => genOf(n)))]
+      : []
+  if (
+    (category === 'pokemon' || category === 'special') &&
+    generations.length === 0
+  ) {
+    generations.push(UNKNOWN_GEN)
+  }
+
+  // SUBTYPE FACET — Specials tab is slimmed to evolution stages ONLY. The Card
+  // Class facet above owns the ex/GX/Tera/MEGA/Ancient/Future/TAG TEAM labels,
+  // so the Specials Subtype facet keeps only {Basic, Stage 1, Stage 2} (the
+  // intersection). Pokémon and Poketools keep their FULL raw subtypes here so
+  // their Subtype facets are unchanged. This affects ONLY the facet field — the
+  // raw subtypes still go into the search blob below (so freetext "ex"/"gx"
+  // works on every tab) and the detail page reads the full subtypes straight
+  // from the raw record (cardDetails.ts), independent of this projection.
+  const EVOLUTION_STAGES = ['Basic', 'Stage 1', 'Stage 2']
+  const facetSubtypes =
+    category === 'special'
+      ? subtypes.filter((s) => EVOLUTION_STAGES.includes(s))
+      : subtypes
+
   // One lowercased blob covering the full documented search scope. Tool cards
   // carry `rules` instead of attacks/abilities; including all fields keeps a
   // single code path that's correct for every category (missing fields are
   // simply empty). role is indexed too so a search like "draw" finds engines.
-  const parts: string[] = [record.name]
+  // The RAW subtypes are indexed (not the slimmed facet list) so freetext
+  // "ex"/"gx"/"tag team" still matches on the Specials tab.
+  const parts: string[] = [record.name, ...subtypes]
   for (const a of record.attacks ?? []) {
     parts.push(a.name, a.text)
   }
@@ -422,14 +536,25 @@ function toFilterableCard(
   for (const r of role) {
     parts.push(r)
   }
+  // Namespaced National Pokédex search tokens: for each dex n, index BOTH
+  // `#25` and `#025` (zero-padded to 3) so a query of either matches a #25 card.
+  // Deliberately NOT the bare number (so "25" alone doesn't match dex by
+  // accident) — the `#` namespaces it as an explicit dex search.
+  for (const n of record.national_pokedex ?? []) {
+    parts.push(`#${n}`, `#${String(n).padStart(3, '0')}`)
+  }
 
   return {
     tile: toCard(record, category),
-    subtypes,
+    // Slimmed to evolution stages on Specials; full raw subtypes elsewhere (see
+    // facetSubtypes). The search blob above still carries the raw subtypes.
+    subtypes: facetSubtypes,
     roles: role,
     types: record.types ?? [],
     sets,
     series,
+    cardClass,
+    generations,
     search: parts.join('  ').toLowerCase(),
   }
 }
