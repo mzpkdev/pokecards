@@ -416,13 +416,13 @@ export type FilterableCard = {
   // setcode prefix (seriesOf). SEPARATE from `sets` (sets = expansion names;
   // series = the broader era a printing belongs to). Empty only if no printings.
   series: string[]
-  // Curated "card class" labels for the Specials tab ONLY, derived from each
-  // card's `subtypes` (see toFilterableCard). Carries BOTH a broad family label
-  // ('ex' / 'GX') AND the specific variant ('Tera ex', 'MEGA', 'Ancient',
-  // 'Future', 'TAG TEAM GX') so a single card can be matched by either — OR
-  // semantics within the facet. ALWAYS [] for non-special categories, which is
-  // what auto-hides this facet on Pokémon/Poketools (zero distinct values →
-  // SearchFilterBar's MultiSelect renders nothing).
+  // Curated "card class" label for the Specials tab ONLY, derived from each
+  // card's `subtypes` (see toFilterableCard). LEAF-ONLY: a special card carries
+  // exactly ONE label — its most specific class ('Tera ex' / 'MEGA' / 'Ancient' /
+  // 'Future' / 'TAG TEAM GX' / 'GX' / 'ex') — so the facet partitions the catalog
+  // (OR-within-facet still lets the user union several). ALWAYS [] for non-special
+  // categories, which is what auto-hides this facet on Pokémon/Poketools (zero
+  // distinct values → SearchFilterBar's MultiSelect renders nothing).
   cardClass: string[]
   // Distinct generation labels ("Gen 1" … "Gen 9", or "Unknown") derived from
   // the record's national_pokedex via genOf. SPECIES TABS ONLY (pokemon +
@@ -466,23 +466,24 @@ function toFilterableCard(
   // (e.g. a reprint) can therefore carry more than one series.
   const series = [...new Set(printings.map((p) => seriesOf(p.id)))]
 
-  // Curated "card class" facet — SPECIALS TAB ONLY. For special cards we scan
-  // the raw `subtypes` and push EVERY applicable label: both the broad family
-  // ('ex' / 'GX') and any specific variant ('Tera ex', 'MEGA', …). The overlap
-  // is deliberate: a Tera card yields BOTH 'ex' (broad: all 296) AND 'Tera ex'
-  // (narrow: 66), and OR-within-facet matching lets the user pick either. Same
-  // for MEGA/Ancient/Future (each is also an ex → gets 'ex' + its own label) and
-  // TAG TEAM (also a GX → gets 'GX' + 'TAG TEAM GX'). Non-special categories get
-  // [] so the facet has zero distinct values there and auto-hides.
+  // Curated "card class" facet — SPECIALS TAB ONLY. Each special card gets
+  // EXACTLY ONE label: its MOST SPECIFIC class (leaf-only, not the broad family).
+  // Priority is first-match-wins, narrowest first — a Tera card is also an `ex`
+  // and a TAG TEAM is also a `GX`, but we assign only the leaf ('Tera ex',
+  // 'TAG TEAM GX') so the facet partitions the catalog cleanly instead of
+  // overlapping. OR-within-facet matching still lets the user tick several
+  // ex-family boxes to union them. Non-special categories get [] so the facet has
+  // zero distinct values there and auto-hides. (The raw subtypes still go into the
+  // search blob below, so freetext "ex"/"tera"/"gx" remains searchable.)
   const cardClass: string[] = []
   if (category === 'special') {
-    if (subtypes.includes('ex')) cardClass.push('ex')
-    if (subtypes.includes('GX')) cardClass.push('GX')
-    if (subtypes.includes('Tera')) cardClass.push('Tera ex')
-    if (subtypes.includes('MEGA')) cardClass.push('MEGA')
-    if (subtypes.includes('Ancient')) cardClass.push('Ancient')
-    if (subtypes.includes('Future')) cardClass.push('Future')
     if (subtypes.includes('TAG TEAM')) cardClass.push('TAG TEAM GX')
+    else if (subtypes.includes('GX')) cardClass.push('GX')
+    else if (subtypes.includes('Tera')) cardClass.push('Tera ex')
+    else if (subtypes.includes('MEGA')) cardClass.push('MEGA')
+    else if (subtypes.includes('Ancient')) cardClass.push('Ancient')
+    else if (subtypes.includes('Future')) cardClass.push('Future')
+    else if (subtypes.includes('ex')) cardClass.push('ex')
   }
 
   // Distinct generation labels for the species TABS ONLY (pokemon + special),
