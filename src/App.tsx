@@ -4,6 +4,7 @@ import GridLayout from './components/GridLayout'
 import CardDetailPage from './components/CardDetailPage'
 import CollectionView from './components/CollectionView'
 import RelatedGridView from './components/RelatedGridView'
+import SetGalleryView from './components/SetGalleryView'
 import RouteFade from './components/RouteFade'
 
 export default function App() {
@@ -30,6 +31,10 @@ export default function App() {
           <Route path="/pokemon" element={<GridLayout category="pokemon" />} />
           <Route path="/poketools" element={<GridLayout category="poketool" />} />
           <Route path="/specials" element={<GridLayout category="special" />} />
+          {/* The "Sets" gallery — another tabbed top-level page (renders the
+              shared tab bar + its own scroll container). Shows every expansion's
+              banner logo grouped by series; a banner links to #/set/<setName>. */}
+          <Route path="/sets" element={<SetGalleryView />} />
           {/* "Your Collection" — a tabbed view (renders the same tab bar) showing
               the user's collected cards through the shared FilterableGrid, with
               per-tile quantity steppers + remove and a clipboard export. */}

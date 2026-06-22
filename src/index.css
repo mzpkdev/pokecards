@@ -3123,3 +3123,130 @@ body {
   outline: 3px solid var(--coral);
   outline-offset: 2px;
 }
+
+/* ============================================================================
+   SET GALLERY ("Sets" tab) — series sections of clickable set-logo banners.
+   The page renders the shared tab bar + its own scroll <main> (.set-gallery);
+   each series is a <section> with a display-font header and the app's standard
+   responsive grid of .set-banner cards. Banners are FLAT logos in a card-like
+   frame (no holo/tilt — that's card-specific): surface + chunky amber border +
+   card radius + soft shadow, mirroring the .tab / .origin-chip templates. Hover
+   is scale-only (round-2 removed translateY lifts) + a sky shadow like .tab.
+   ========================================================================== */
+.set-gallery {
+  /* A little top breathing room from the tab bar (the card grid gets this from
+     VirtuosoGrid's Header spacer; here the section flow supplies it directly). */
+  padding-top: 1.5rem;
+}
+
+.set-series {
+  /* Sections stack with comfortable separation; the inner grid carries its own
+     horizontal padding (px-4) so the header aligns to the same gutter. */
+  margin-bottom: 0.5rem;
+}
+
+.set-series-header {
+  margin: 0 0 0.85rem;
+  padding: 0 1.5rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.35rem;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+/* The banner card: a flat logo in a playful frame. Same surface/border/radius/
+   shadow vocabulary as .tab + .origin-chip; column layout so the logo sits
+   above the caption and the whole tile is one click target. */
+.set-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.85rem 0.85rem 0.7rem;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  text-decoration: none;
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    border-color 200ms ease,
+    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 200ms ease;
+  outline: none;
+}
+
+/* Constrain every logo to a consistent banner box and center it; logos vary in
+   aspect, so object-fit: contain keeps them whole without cropping or stretch.
+   overflow: hidden + radius clips the card-image fallback (below) to the frame. */
+.set-banner-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88px;
+  padding: 0.25rem;
+  overflow: hidden;
+  border-radius: var(--r-md);
+}
+
+.set-banner-art img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+/* Card-image fallback (the onError stage 1 for the handful of sets with no
+   logo): a portrait card would shrink awkwardly under object-fit: contain, so
+   fill the whole banner box as deliberate "set art" — cover crops to the frame,
+   top-anchored so the card's name/artwork shows rather than its bottom edge. */
+.set-banner-art img[data-stage='card'] {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.set-banner-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: center;
+}
+
+.set-banner-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.92rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+.set-banner-count {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.74rem;
+  color: var(--text-dim);
+}
+
+/* Hover: scale-only (no lift) + sky color/shadow, matching .tab:hover. */
+@media (hover: hover) and (pointer: fine) {
+  .set-banner:hover {
+    border-color: var(--sky);
+    transform: scale(1.04);
+    box-shadow: var(--shadow-sky);
+  }
+  .set-banner:hover .set-banner-name {
+    color: var(--sky-deep);
+  }
+}
+
+/* keyboard-only focus ring, matching .tab:focus-visible. */
+.set-banner:focus-visible {
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--coral);
+}

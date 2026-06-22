@@ -31,6 +31,11 @@ export const POKEMON_FILE = 'database/pokemon.json'
 export const POKETOOL_FILE = 'database/poketools.json'
 export const SPECIAL_FILE = 'database/specials.json'
 
+// Set metadata (release dates), fetched the same way the card files are so set
+// info can be updated without a code change. Same path convention as the card
+// files above (BASE_URL-prefixed by its loader, like fetchFile).
+export const SETS_FILE = 'database/sets.json'
+
 // Maps a grid category to the static JSON file that backs it. All three
 // categories are real fetched datasets. Specials records share the pokemon
 // shape PLUS a top-level `rules` field (V/ex/VMAX/… rule text).
@@ -356,6 +361,44 @@ const SERIES_PREFIX: Record<string, string> = {
 // Fallback bucket for any setcode whose alpha family isn't in SERIES_PREFIX.
 const OTHER_SERIES = 'Other'
 
+// ============================================================================
+// SET RELEASE DATES — the single source of truth for chronological ordering of
+// the Sets gallery (sections AND sets within a section). Lives as fetched static
+// JSON (database/sets.json) so set metadata can be updated without a code change
+// — an array of { setcode, releaseDate } leaving room for future per-set fields.
+// releaseDate is a fixed-width YYYY/MM/DD string, so plain string comparison is
+// chronological — NO Date parsing needed anywhere. A setcode missing from the
+// file resolves to '' (see loadSetIndex), which sorts last/oldest (defensive).
+// ============================================================================
+type SetMeta = { setcode: string; releaseDate: string }
+
+// Module-scoped cache of the in-flight/resolved sets.json fetch — fetched at
+// most once for the page lifetime, dropped on failure so a later attempt can
+// retry (mirrors fetchFile / setIndexCache).
+let setMetaCache: Promise<SetMeta[]> | null = null
+
+/**
+ * Fetches and caches set metadata (database/sets.json). BASE_URL-prefixed like
+ * fetchFile so it resolves in both dev and the /pokecards/ Pages base. Drops the
+ * cache on failure so a later attempt can retry.
+ */
+function fetchSetMeta(): Promise<SetMeta[]> {
+  if (setMetaCache) return setMetaCache
+
+  const promise = fetch(import.meta.env.BASE_URL + SETS_FILE)
+    .then((res) => {
+      if (!res.ok) throw new Error(`Failed to load ${SETS_FILE}: ${res.status}`)
+      return res.json() as Promise<SetMeta[]>
+    })
+    .catch((err) => {
+      setMetaCache = null
+      throw err
+    })
+
+  setMetaCache = promise
+  return promise
+}
+
 /**
  * Derives a card's TCG series from a printing id. Takes the setcode (before the
  * first `-`), reduces it to its leading-alpha family (digits/suffix stripped),
@@ -669,5 +712,136 @@ export function loadAllFilterableCards(): Promise<FilterableCard[]> {
     })
 
   allFilterableCache = promise
+  return promise
+}
+
+// ============================================================================
+// SET INDEX — one entry per printing SET (e.g. "sv1", "cel25c"), built from the
+// RAW records, for the "Sets" gallery tab.
+// ----------------------------------------------------------------------------
+// Built from raw records (NOT FilterableCard): the projection keeps only set
+// *names* + series and drops each printing's id/setcode, so the setName↔setcode
+// pairing is lost there. Only record.printings[] carries `id` (→ setcode) and
+// `set` (→ name) together, so we walk the raw records straight off fetchFile.
+//
+// cardCount is the number of DISTINCT cards (records) with >=1 printing in a
+// set — a record with two printings in the SAME set counts once (deduped by
+// record id). Memoized for the page lifetime, dropped on failure so a remount
+// can retry. Result is a flat array sorted by setcode ascending.
+// ============================================================================
+
+/**
+ * One printing set: its setcode (printing id prefix), display name, derived
+ * series, distinct-card count, and templated logo URL.
+ */
+export type SetInfo = {
+  setcode: string
+  setName: string
+  series: string
+  cardCount: number
+  // Exact release date as a fixed-width YYYY/MM/DD string (from the fetched
+  // sets.json), or '' for an unknown setcode. The Sets gallery orders
+  // both series sections and sets-within-series by this; '' sorts last/oldest.
+  // Plain string comparison is chronological — no Date parsing.
+  releaseDate: string
+  logoUrl: string
+  // A representative card image for the set (the card image of the printing
+  // that first established this setcode). Always a working image (scrydex or
+  // pokemontcg.io); used as a banner fallback when logoUrl 404s.
+  sampleImage: string
+}
+
+// Module-scoped memo of the set index. Cleared on failure (below) so a later
+// attempt can retry rather than resolving a poisoned/empty set.
+let setIndexCache: Promise<SetInfo[]> | null = null
+
+/**
+ * Loads the set index: one SetInfo per distinct setcode across EVERY category.
+ * Fetches all dataset files (reusing fetchFile's module-scoped cache, so nothing
+ * re-fetches), walks each raw record's printings[], and accumulates per setcode
+ * — setName/series from the first printing seen, cardCount as the number of
+ * distinct record ids contributing a printing to that set. Returns a flat array
+ * sorted by setcode ascending. Memoized for the page lifetime.
+ *
+ * Rejects if ANY file fails to load; the cached promise is dropped on failure so
+ * a remount can retry.
+ */
+export function loadSetIndex(): Promise<SetInfo[]> {
+  if (setIndexCache) return setIndexCache
+
+  const promise = Promise.all([
+    Promise.all(ALL_FILES.map((file) => fetchFile(file))),
+    fetchSetMeta(),
+  ])
+    .then(([perFile, setMeta]) => {
+      // setcode → releaseDate lookup from the fetched sets.json; a setcode
+      // missing here falls back to '' below (sorts last/oldest — defensive).
+      const releaseDateBy = new Map(
+        setMeta.map((s) => [s.setcode, s.releaseDate]),
+      )
+
+      // Accumulate per setcode. `recordIds` dedupes distinct cards so a record
+      // with two printings in the same set counts once toward cardCount.
+      const bySetcode = new Map<
+        string,
+        {
+          setName: string
+          series: string
+          sampleImage: string
+          recordIds: Set<string>
+        }
+      >()
+      for (const records of perFile) {
+        for (const record of records) {
+          // Raw records carry no top-level id; a card's canonical identity is
+          // its default printing's id (printings[0].id) — the same key toCard
+          // uses for tile.id. Used here only to dedupe distinct cards so a
+          // record with two printings in the SAME set counts once.
+          const recordId = record.printings[0]?.id ?? ''
+          for (const p of record.printings) {
+            const setcode = p.id.split('-')[0] ?? ''
+            let entry = bySetcode.get(setcode)
+            if (!entry) {
+              entry = {
+                setName: p.set,
+                series: seriesOf(p.id),
+                // Card image of the printing that first established this
+                // setcode — a guaranteed-working banner fallback.
+                sampleImage: p.image,
+                recordIds: new Set<string>(),
+              }
+              bySetcode.set(setcode, entry)
+            }
+            entry.recordIds.add(recordId)
+          }
+        }
+      }
+
+      const sets: SetInfo[] = []
+      for (const [setcode, entry] of bySetcode) {
+        sets.push({
+          setcode,
+          setName: entry.setName,
+          series: entry.series,
+          cardCount: entry.recordIds.size,
+          // Exact release date for chronological ordering in the Sets gallery,
+          // from the fetched sets.json. '' for a setcode missing from the file
+          // (sorts last/oldest) — all current codes are present, so defensive.
+          releaseDate: releaseDateBy.get(setcode) ?? '',
+          logoUrl: `https://images.pokemontcg.io/${setcode}/logo.png`,
+          sampleImage: entry.sampleImage,
+        })
+      }
+      sets.sort((a, b) =>
+        a.setcode < b.setcode ? -1 : a.setcode > b.setcode ? 1 : 0,
+      )
+      return sets
+    })
+    .catch((err) => {
+      setIndexCache = null
+      throw err
+    })
+
+  setIndexCache = promise
   return promise
 }

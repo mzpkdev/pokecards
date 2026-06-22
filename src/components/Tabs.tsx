@@ -10,6 +10,7 @@ const TABS = [
   { to: '/pokemon', label: 'Pokémon' },
   { to: '/poketools', label: 'Poketools' },
   { to: '/specials', label: 'Specials' },
+  { to: '/sets', label: 'Sets' },
   // The collection tab carries a live count badge (total quantity collected),
   // so it's rendered separately below — it reads the reactive store.
   { to: '/collection', label: 'Your Collection', collection: true as const },
