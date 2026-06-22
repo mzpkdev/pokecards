@@ -55,3 +55,39 @@ const ENERGY_ICON: Record<string, string> = {
 export function energyIcon(type: string): string {
   return ENERGY_ICON[type] ?? normal
 }
+
+// ============================================================================
+// TYPE → TINT COLOR — the per-energy hue used to wash a grid tile's background.
+// ----------------------------------------------------------------------------
+// SAME 11 TCG type identifiers as ENERGY_ICON above (verified against the data:
+// pokemon.json + specials.json carry exactly Grass/Fire/Water/Lightning/Psychic/
+// Fighting/Darkness/Metal/Colorless/Dragon, plus Fairy on specials; poketools
+// have no `types` at all). The icons are self-colored SVGs, so there was no
+// existing per-type CSS color to reuse — these are the canonical Pokémon TCG
+// type hues, picked at a mid saturation since index.css applies them as a SOFT,
+// low-alpha wash behind the card art (so the tint only ever reads as a gentle
+// hint, never a saturated fill). Colorless → a neutral slate gray, which is also
+// the fallback below for any no-type tile (Trainers/Tools) or unknown value.
+const NEUTRAL_TYPE_COLOR = '#9aa0ad' // Colorless / no-type → neutral gray
+
+const TYPE_COLOR: Record<string, string> = {
+  Grass: '#4caf50', // green
+  Fire: '#ff5a4d', // red
+  Water: '#2f8fe0', // blue
+  Lightning: '#f2c029', // yellow
+  Psychic: '#a35fd0', // purple
+  Fighting: '#c0703f', // orange-brown
+  Darkness: '#4a5568', // dark slate
+  Metal: '#8a93a3', // steel gray
+  Fairy: '#ec78b8', // pink
+  Dragon: '#caa53d', // gold
+  Colorless: NEUTRAL_TYPE_COLOR,
+}
+
+// Resolve a card's PRIMARY (first) type to its tint color. Multi-type cards use
+// types[0]; a missing/empty array (Trainers/Tools) or an unknown value falls
+// back to the neutral gray, so every tile gets a defined --card-type-color.
+export function typeColor(types: string[] | undefined): string {
+  const primary = types?.[0]
+  return (primary && TYPE_COLOR[primary]) || NEUTRAL_TYPE_COLOR
+}

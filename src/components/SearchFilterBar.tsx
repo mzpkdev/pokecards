@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Portal,
+  Select,
+  createListCollection,
+  useSelectItemContext,
+} from '@ark-ui/react'
 import type { FacetOptions, CardFilters } from '../useCardFilters'
 import { PARAM } from '../useCardFilters'
 import { formatRoleLabel } from '../roleLabel'
@@ -15,6 +21,11 @@ import { formatRoleLabel } from '../roleLabel'
 // Category-awareness is automatic: each facet renders only when its option list
 // is non-empty. So Types vanish on poketools, Role vanishes on specials, etc.,
 // with no hardcoded per-category logic here.
+//
+// The seven facets are Ark UI <Select multiple> widgets (headless listbox +
+// ARIA + keyboard/typeahead from Zag); we keep the existing .filter-* classes
+// on each Ark part so the look is unchanged, and drive every Select CONTROLLED
+// off the URL-derived `filters.*` (no forked local selection state).
 // ============================================================================
 
 // Debounce for the text query (ms). Long enough that fast typing doesn't thrash
@@ -35,115 +46,161 @@ type SearchFilterBarProps = {
   params: URLSearchParams
 }
 
-// Small hook: close a dropdown when a pointerdown lands outside its root, or on
-// Escape. Used per multiselect so only one popover stays open at a time without
-// any global menu manager.
-function useDismiss(open: boolean, onClose: () => void) {
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const onPointerDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open, onClose])
-  return ref
+// The native checkbox that renders inside each Select.Item, ticked to match the
+// item's selection state (read from Ark's item context). This preserves the
+// original `.filter-option input[type='checkbox']` visuals byte-for-byte while
+// Ark owns the actual selection logic (so the checkbox is purely a presentation
+// of `itemState.selected` — clicks are handled by the Select.Item, not here).
+function ItemCheckbox() {
+  const itemState = useSelectItemContext()
+  return (
+    <input
+      type="checkbox"
+      checked={itemState.selected}
+      // The Select.Item owns toggling; this input only reflects state. readOnly
+      // keeps React happy about the controlled `checked` with no onChange and
+      // makes it inert to direct interaction (the row label drives selection).
+      readOnly
+      tabIndex={-1}
+      aria-hidden="true"
+    />
+  )
 }
 
-// One multiselect facet: a button that opens a checkbox list. OR-within-facet
-// is expressed by simply allowing multiple checks. Renders nothing when there
-// are no options (category-awareness — e.g. types on poketools).
+// One multiselect facet, backed by an Ark <Select multiple>. OR-within-facet is
+// expressed by allowing multiple selections. Renders nothing when there are no
+// options (category-awareness — e.g. types on poketools).
+//
+// CONTROLLED off the URL: `selected` is the facet's value array parsed from the
+// URL and `onValuesChange` writes the new array straight back through the shared
+// URLSearchParams plumbing — no local selection state.
 function MultiSelect({
   label,
-  paramKey,
   options,
   selected,
-  onToggle,
+  onValuesChange,
   onClear,
   formatLabel,
 }: {
   label: string
-  paramKey: string
   options: string[]
   selected: string[]
-  onToggle: (value: string) => void
+  // Receives the full next selection (canonical option casing); the caller
+  // comma-joins it into the facet's URL param.
+  onValuesChange: (values: string[]) => void
   onClear: () => void
   // Optional DISPLAY-ONLY transform for each option's visible text. The raw
-  // `opt` is still the value passed to onToggle / stored in the URL param, so
-  // filtering matches the data; only the rendered label changes (e.g. roles
-  // shown Capitalized while ?role= stays the raw lowercase value).
+  // `opt` is still the value stored in the URL param, so filtering matches the
+  // data; only the rendered label changes (e.g. roles shown Capitalized while
+  // ?role= stays the raw lowercase value).
   formatLabel?: (value: string) => string
 }) {
-  const [open, setOpen] = useState(false)
-  const close = useCallback(() => setOpen(false), [])
-  const ref = useDismiss(open, close)
+  // Ark's collection: value = the raw option (what we store in the URL), label =
+  // the display text (Role capitalization etc.). Memoized on the option list so
+  // the collection identity is stable across re-renders.
+  const collection = useMemo(
+    () =>
+      createListCollection({
+        items: options,
+        itemToValue: (opt) => opt,
+        itemToString: (opt) => (formatLabel ? formatLabel(opt) : opt),
+      }),
+    [options, formatLabel],
+  )
+
+  // Case-insensitive: a URL value of "fire" must tick the "Fire" option. Map
+  // each selected URL value onto the canonical option casing so Ark (which
+  // compares values exactly) marks the right items selected. Values without a
+  // matching option are dropped (same as the old membership test ignoring them).
+  const controlledValue = useMemo(() => {
+    if (selected.length === 0) return []
+    const byLower = new Map(options.map((opt) => [opt.toLowerCase(), opt]))
+    return selected
+      .map((v) => byLower.get(v.toLowerCase()))
+      .filter((v): v is string => v != null)
+  }, [selected, options])
 
   if (options.length === 0) return null
 
-  // Case-insensitive membership so a URL value of "fire" still ticks "Fire".
-  const selectedLower = selected.map((v) => v.toLowerCase())
-  const count = selected.length
+  const count = controlledValue.length
 
   return (
-    <div className="filter-facet" ref={ref}>
-      <button
-        type="button"
-        className={['filter-trigger', count > 0 ? 'is-active' : ''].join(' ')}
-        aria-expanded={open}
-        aria-haspopup="true"
-        onClick={() => setOpen((o) => !o)}
-      >
-        <span className="filter-trigger-label">{label}</span>
-        {count > 0 && <span className="filter-trigger-count">{count}</span>}
-        <span className="filter-trigger-caret" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-      {open && (
-        <div className="filter-menu" role="group" aria-label={label}>
-          <div className="filter-menu-head">
-            <span className="filter-menu-title">{label}</span>
-            {count > 0 && (
-              <button
-                type="button"
-                className="filter-menu-clear"
-                onClick={onClear}
-              >
-                Clear
-              </button>
-            )}
-          </div>
-          <ul className="filter-options">
-            {options.map((opt) => {
-              const checked = selectedLower.includes(opt.toLowerCase())
-              return (
+    <Select.Root
+      // Controlled, multi-select, URL-owned. closeOnSelect:false keeps the
+      // popover open while ticking several values (matches the old checkbox
+      // list, where each click toggled in place without closing).
+      collection={collection}
+      multiple
+      closeOnSelect={false}
+      value={controlledValue}
+      onValueChange={(details) => onValuesChange(details.value)}
+      // Let Ark/Zag (Floating-UI) own positioning: drop the menu 8px below the
+      // trigger, left-aligned (bottom-start) in the normal case, but with flip/
+      // shift collision handling ON (Zag defaults) so a right-edge or bottom-edge
+      // facet auto-shifts/flips to stay fully inside the viewport — no horizontal
+      // scrollbar. The 8px gap lives HERE (gutter) instead of in CSS, so there's
+      // no double-offset with the Positioner's transform.
+      positioning={{ placement: 'bottom-start', gutter: 8 }}
+      className="filter-facet"
+    >
+      <Select.Control>
+        <Select.Trigger
+          className={['filter-trigger', count > 0 ? 'is-active' : ''].join(' ')}
+        >
+          <span className="filter-trigger-label">{label}</span>
+          {count > 0 && <span className="filter-trigger-count">{count}</span>}
+          <span className="filter-trigger-caret" aria-hidden="true">
+            ▾
+          </span>
+        </Select.Trigger>
+      </Select.Control>
+      {/* PORTAL the popover to <body> so it escapes any ancestor's clip/scroll
+          context (a page-level `overflow-x:hidden` computes to overflow-y:auto per
+          spec, which both crops the popover AND is what Floating-UI treats as its
+          clipping boundary). Out of that chain, the boundary becomes the viewport,
+          so flip/shift keep the menu fully on-screen with no horizontal scrollbar.
+          Ark/Zag (Floating-UI via @zag-js/popper) still anchors the Positioner to
+          the trigger and writes the inline position + transform (8px below,
+          left-aligned via `positioning` above).
+          Z-INDEX: the Positioner's inline style is `z-index: var(--z-index)`, and
+          @zag-js/popper sets that --z-index from getComputedStyle(Content).zIndex
+          — so the popover's stacking level is declared as `z-index:20` on
+          .filter-menu (the Content) in index.css, NOT on the portalled positioner
+          (the old `--z-index` on .filter-facet no longer reaches it under <body>).
+          .filter-menu is otherwise visual-only (surface, border, width, scroll). */}
+      <Portal>
+        <Select.Positioner className="filter-positioner">
+          <Select.Content className="filter-menu" aria-label={label}>
+            <div className="filter-menu-head">
+              <span className="filter-menu-title">{label}</span>
+              {count > 0 && (
+                <Select.ClearTrigger
+                  className="filter-menu-clear"
+                  onClick={onClear}
+                >
+                  Clear
+                </Select.ClearTrigger>
+              )}
+            </div>
+            <ul className="filter-options">
+              {options.map((opt) => (
                 <li key={opt}>
-                  <label className="filter-option">
-                    <input
-                      type="checkbox"
-                      name={paramKey}
-                      checked={checked}
-                      onChange={() => onToggle(opt)}
-                    />
-                    <span className="filter-option-text">
+                  {/* Select.Item carries role="option"/aria-selected + click-to-
+                      toggle; we keep the .filter-option look and the native
+                      checkbox (presentational, reflecting item state). */}
+                  <Select.Item item={opt} className="filter-option">
+                    <ItemCheckbox />
+                    <Select.ItemText className="filter-option-text">
                       {formatLabel ? formatLabel(opt) : opt}
-                    </span>
-                  </label>
+                    </Select.ItemText>
+                  </Select.Item>
                 </li>
-              )
-            })}
-          </ul>
-        </div>
-      )}
-    </div>
+              ))}
+            </ul>
+          </Select.Content>
+        </Select.Positioner>
+      </Portal>
+    </Select.Root>
   )
 }
 
@@ -176,19 +233,6 @@ export default function SearchFilterBar({
       })
     },
     [update],
-  )
-
-  // Toggle one value in a facet (OR-within-facet). Case-insensitive removal so a
-  // ticked value is always removable regardless of URL casing.
-  const toggle = useCallback(
-    (key: string, current: string[], value: string) => {
-      const has = current.some((v) => v.toLowerCase() === value.toLowerCase())
-      const nextValues = has
-        ? current.filter((v) => v.toLowerCase() !== value.toLowerCase())
-        : [...current, value]
-      setList(key, nextValues)
-    },
-    [setList],
   )
 
   // --- Debounced text query --------------------------------------------------
@@ -326,62 +370,55 @@ export default function SearchFilterBar({
         >
           <MultiSelect
             label="Type"
-            paramKey={PARAM.type}
             options={options.types}
             selected={filters.types}
-            onToggle={(v) => toggle(PARAM.type, filters.types, v)}
+            onValuesChange={(v) => setList(PARAM.type, v)}
             onClear={() => setList(PARAM.type, [])}
           />
           <MultiSelect
             label="Subtype"
-            paramKey={PARAM.subtype}
             options={options.subtypes}
             selected={filters.subtypes}
-            onToggle={(v) => toggle(PARAM.subtype, filters.subtypes, v)}
+            onValuesChange={(v) => setList(PARAM.subtype, v)}
             onClear={() => setList(PARAM.subtype, [])}
           />
           {/* Card Class — Specials tab only. options.cardClasses is empty for
               non-special categories, so MultiSelect renders nothing there. */}
           <MultiSelect
             label="Card Class"
-            paramKey={PARAM.cardClass}
             options={options.cardClasses}
             selected={filters.cardClasses}
-            onToggle={(v) => toggle(PARAM.cardClass, filters.cardClasses, v)}
+            onValuesChange={(v) => setList(PARAM.cardClass, v)}
             onClear={() => setList(PARAM.cardClass, [])}
           />
           {/* Generation — species tabs only (Pokémon + Specials). options.generations
               is empty on Poketools, so MultiSelect renders nothing there. */}
           <MultiSelect
             label="Generation"
-            paramKey={PARAM.gen}
             options={options.generations}
             selected={filters.generations}
-            onToggle={(v) => toggle(PARAM.gen, filters.generations, v)}
+            onValuesChange={(v) => setList(PARAM.gen, v)}
             onClear={() => setList(PARAM.gen, [])}
           />
           <MultiSelect
             label="Set"
-            paramKey={PARAM.set}
             options={options.sets}
             selected={filters.sets}
-            onToggle={(v) => toggle(PARAM.set, filters.sets, v)}
+            onValuesChange={(v) => setList(PARAM.set, v)}
             onClear={() => setList(PARAM.set, [])}
           />
           <MultiSelect
             label="Series"
-            paramKey={PARAM.series}
             options={options.series}
             selected={filters.series}
-            onToggle={(v) => toggle(PARAM.series, filters.series, v)}
+            onValuesChange={(v) => setList(PARAM.series, v)}
             onClear={() => setList(PARAM.series, [])}
           />
           <MultiSelect
             label="Role"
-            paramKey={PARAM.role}
             options={options.roles}
             selected={filters.roles}
-            onToggle={(v) => toggle(PARAM.role, filters.roles, v)}
+            onValuesChange={(v) => setList(PARAM.role, v)}
             onClear={() => setList(PARAM.role, [])}
             // Roles are stored lowercase in the data; show them Capitalized while
             // the toggled value / ?role= param stays the raw value (so filtering

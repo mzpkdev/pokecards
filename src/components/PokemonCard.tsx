@@ -1,5 +1,7 @@
+import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import type { PokemonCard as PokemonCardData } from '../types'
+import { typeColor } from '../energyIcons'
 import { useHoloPointer } from '../useHoloPointer'
 // Local, content-hashed asset (Vite rewrites the URL under the '/pokecards/'
 // base) so it stays correct on GitHub Pages and never hotlinks.
@@ -40,6 +42,16 @@ export default function PokemonCard({ card }: PokemonCardProps) {
   const { ref: holoRef, onPointerEnter, onPointerMove, onPointerLeave } =
     useHoloPointer()
 
+  // Per-card tint hook: resolve the PRIMARY energy type to its color and hand it
+  // to the tile as a CSS custom property. index.css drives a SUBTLE background
+  // wash on .pc-thumb off this var, so the whole palette stays in one place
+  // (energyIcons.ts) and no hex is inlined here. No-type cards (Trainers/Tools)
+  // and unknown values resolve to the neutral gray inside typeColor(). The cast
+  // is only because '--card-type-color' isn't a known CSSProperties key.
+  const tintStyle = {
+    '--card-type-color': typeColor(card.types),
+  } as CSSProperties
+
   return (
     // The tile IS the link: making .pc-card a react-router <Link> (a real <a>)
     // keeps the holo geometry identical — same element the holo ref points at, same
@@ -60,6 +72,7 @@ export default function PokemonCard({ card }: PokemonCardProps) {
       to={`/card/${card.id}`}
       ref={holoRef}
       data-category={card.category}
+      style={tintStyle}
       aria-label={`View ${card.name} details`}
       onPointerEnter={onPointerEnter}
       onPointerMove={onPointerMove}

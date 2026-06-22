@@ -269,6 +269,12 @@ function toCard(record: RawRecord, category: CardCategory): PokemonCard {
     // scan only if a record somehow has no image.
     imageUrl: printing?.image || pikachuCard,
     category,
+    // Energy types drive the tile's per-type background tint (primary type).
+    // Pokémon/specials carry them; Trainer/Tool records have none (→ neutral).
+    // Threading them here covers every grid render path: loadCards (the plain
+    // grid) and toFilterableCard's `tile` (search/filter + collection) both
+    // build their tiles through toCard, so the tint is available everywhere.
+    types: record.types,
   }
 }
 

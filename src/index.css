@@ -457,6 +457,18 @@ body {
   flex-direction: column;
   gap: 0.55rem;
   padding: 0.7rem 1.5rem 0.85rem;
+  /* Subtle elevation: lift the controls band above the grid and let it cast a
+     soft shadow DOWNWARD onto the cards below. position:relative + z-index makes
+     this a stacking context above the grid tiles (which lift to z-index:2 on
+     hover) so the shadow paints OVER the cards — but stays well below the
+     portalled filter popover (.filter-menu, z-index:20) and the lightbox (1000),
+     so an open dropdown still renders above everything. Same indigo rgba +
+     negative-spread idiom as --shadow-soft, tuned for a wide downward edge:
+     positive Y + soft blur + slight negative spread + low alpha = a gentle
+     separation/elevation shadow, not a heavy one. */
+  position: relative;
+  z-index: 3;
+  box-shadow: 0 6px 16px -8px rgba(43, 33, 80, 0.25);
 }
 
 .filter-bar-row {
@@ -642,12 +654,24 @@ body {
   }
 }
 
-/* Popover panel — anchored under its trigger. A scrollable checkbox list. */
+/* Popover panel — surface + sizing + scroll, and it carries the popover's
+   z-index. Ark/Zag's Select.Positioner (Floating-UI) owns PLACEMENT: it sets
+   position + the inline coordinates (8px below the trigger, left-aligned via
+   positioning={{placement:'bottom-start',gutter:8}} in SearchFilterBar) and runs
+   flip/shift collision detection so a right-/bottom-edge facet auto-shifts/flips
+   to stay inside the viewport (no horizontal scrollbar). The Positioner is
+   PORTALLED to <body> (see SearchFilterBar) so the popover escapes any ancestor
+   overflow that would clip it; out of that chain the clipping boundary becomes
+   the viewport.
+   STACKING: the Positioner's inline style is `z-index: var(--z-index)`, and
+   @zag-js/popper sets that --z-index from getComputedStyle(Content).zIndex — i.e.
+   it copies the z-index off THIS element (the Content). So the popover's stacking
+   level is declared HERE (z-index:20: above the grid tiles, which lift to
+   z-index:2 on hover, and the header at z-index:1; the lightbox stays on top at
+   1000). Do NOT add position/top/left/offset here — placement is the Positioner's
+   job. A scrollable checkbox list. */
 .filter-menu {
-  position: absolute;
   z-index: 20;
-  top: calc(100% + 0.5rem);
-  left: 0;
   min-width: 13rem;
   max-width: 18rem;
   padding: 0.55rem;
@@ -846,6 +870,44 @@ body {
   transition: box-shadow 240ms ease;
 }
 
+/* ============================================================================
+   PER-TYPE TINT — a SUBTLE wash keyed to the card's primary energy type.
+   ----------------------------------------------------------------------------
+   PokemonCard.tsx sets --card-type-color on .pc-card from the centralized
+   typeColor() map in energyIcons.ts (the SAME 11 TCG type names the energy
+   icons use; neutral gray for no-type Trainers/Tools and unknown values). We
+   paint it as a soft halo on a ::before pseudo-element rather than as the
+   tile/art background, because the grid art is object-fit:cover and fills the
+   .pc-thumb box edge-to-edge — a background directly behind it would be almost
+   entirely hidden. The pseudo extends a few px BEYOND the card silhouette and
+   sits at z-index:-1 (behind the art + holo, above the transparent page), so
+   the tint reads as a gentle colored wash/glow around and behind the card.
+
+   This is deliberately INERT w.r.t. the signature effects: it's a static,
+   low-alpha gradient on a separate layer, so it never touches the holo (shine/
+   glare blend against the cover-fit art, clipped to .pc-rotator), the mount
+   fade-in (opacity on .pc-card-link), the hover-lift / 3D tilt (transforms on
+   .pc-rotator) or the drop shadow (box-shadow on .pc-card). color-mix keeps it
+   a hint (~26%→14% of the type hue over the page), not a saturated fill, so the
+   art + holo stay perfectly readable. The fallback hue guards a stray tile that
+   somehow lacks the var so the background can never resolve to `invalid`. */
+.pc-card::before {
+  content: '';
+  position: absolute;
+  /* Bleed slightly past the card so the wash forms a soft halo around the
+     rounded silhouette instead of being fully hidden behind the cover-fit art. */
+  inset: -7px;
+  z-index: -1;
+  border-radius: calc(var(--pc-radius) + 7px);
+  background-image: radial-gradient(
+    120% 100% at 50% 0%,
+    color-mix(in srgb, var(--card-type-color, #9aa0ad) 26%, transparent) 0%,
+    color-mix(in srgb, var(--card-type-color, #9aa0ad) 14%, transparent) 60%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
 /* The tile is now a react-router <Link> (a real <a>). Strip the anchor's default
    text styling so it reads purely as the card, and make the whole tile a click
    target. CRITICAL: no display/overflow change here — .pc-card stays the same
@@ -858,6 +920,31 @@ body {
   text-decoration: none;
   outline: none;
   -webkit-tap-highlight-color: transparent;
+  /* Subtle mount fade — GRID TILES ONLY. Scoped to .pc-card-link (the grid
+     <Link>), so the shared .pc-card holo structure does NOT fade when reused on
+     the detail-page hero or the .pc-card--lightbox fullscreen viewer (neither
+     carries .pc-card-link). An @keyframes (not a transition) so it fires
+     automatically on mount; OPACITY ONLY (never transform) so it can't fight the
+     holo tilt / hover-lift on .pc-rotator. `both` holds opacity:1 after it ends.
+     VirtuosoGrid recycles tiles, so this replays as cards scroll back in — the
+     intended, lightweight behavior. Disabled under prefers-reduced-motion below. */
+  animation: pc-card-fade-in 125ms cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+
+@keyframes pc-card-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-card-link {
+    opacity: 1;
+    animation: none;
+  }
 }
 
 /* keyboard-only focus ring on the card link (litewind has no focus-visible
@@ -1315,14 +1402,17 @@ body {
 }
 
 /* ============================================================================
-   CARD MOUNT — intentionally NO entrance animation.
-   VirtuosoGrid unmounts off-screen rows and remounts them on scroll-in, so any
-   mount keyframe (fade/rise) would REPLAY on every re-entry → blink/flicker.
-   Tiles must be fully opaque and un-animated from first paint; only the :hover
-   lift transition above remains (it never fires on mount). So we hard-pin the
-   resting state here to guarantee computed animation-name:none + opacity:1.
+   CARD MOUNT — base reset for NON-GRID holo cards.
+   The shared .pc-card structure is reused by the .pc-card--lightbox fullscreen
+   viewer (which runs its own lightbox-pop) and the detail hero; those must NOT
+   inherit a stray entrance animation, so we hard-pin their resting state to
+   animation-name:none + opacity:1. Scoped :not(.pc-card-link) so it does NOT
+   touch the GRID TILES — those opt into the subtle pc-card-fade-in mount fade
+   defined on .pc-card-link above (which, with equal single-class specificity,
+   would otherwise be clobbered by this later rule). VirtuosoGrid recycling
+   replays that grid fade on scroll-in by design.
    ========================================================================== */
-.pc-card {
+.pc-card:not(.pc-card-link) {
   animation: none;
   opacity: 1;
 }
@@ -2499,6 +2589,19 @@ body {
 
 .lightbox-backdrop:focus-visible {
   outline: none;
+}
+
+/* Ark UI Dialog.Content surface. The dialog's a11y contract (role="dialog" +
+   aria-modal + the focus-trap target, all supplied by Ark) lives on this node,
+   but it must add NO box of its own: the centering + dim stage is .lightbox-
+   backdrop on the Positioner, and the enlarged card's geometry (.pc-card--lightbox)
+   is sized to be a direct grid item of that centered stage. display:contents
+   makes Content layout-transparent, so the card centers in the stage exactly as
+   it did when it was a direct child of the old backdrop. Content still carries
+   Ark's tabIndex=-1, so it remains the (sole) focus stop for the trap — matching
+   the original image-viewer behavior where Tab just keeps focus on the dialog. */
+.lightbox-content {
+  display: contents;
 }
 
 @keyframes lightbox-fade {

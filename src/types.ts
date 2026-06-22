@@ -14,6 +14,10 @@ export type PokemonCard = {
   setName?: string
   number?: string
   rarity?: string
+  // Energy type names (pokemontcg.io shape, e.g. ['Fire']). Used by the grid
+  // tile to tint its background by the card's PRIMARY (first) type. Absent on
+  // Trainer/Tool cards (poketools) — those render the neutral tint.
+  types?: string[]
 }
 
 // ============================================================================

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NumberInput } from '@ark-ui/react'
 import type { LoadState } from './CardGrid'
 import FilterableGrid from './FilterableGrid'
 import Tabs from './Tabs'
@@ -104,29 +105,53 @@ function CollectionControls({ tile }: { tile: PokemonCard }) {
       // (the overlay sits over the card link, which would otherwise navigate).
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="collection-stepper" role="group" aria-label={`Quantity of ${tile.name}`}>
-        <button
-          type="button"
+      {/* Ark NumberInput, fully CONTROLLED off the collection store: value mirrors
+          quantityOf(cardKey) and every change flows back through setQuantity — which
+          persists to localStorage and is reactive app-wide (tab badge/detail stay in
+          sync). No local state is forked. min=1 makes Ark auto-disable the decrement
+          trigger at qty 1 (remove handles deletion via the separate button below),
+          exactly reproducing the old `disabled={qty <= 1}`. */}
+      <NumberInput.Root
+        className="collection-stepper"
+        role="group"
+        aria-label={`Quantity of ${tile.name}`}
+        value={String(qty)}
+        min={1}
+        step={1}
+        // setQuantity floors a non-finite n to 0 and then REMOVES the entry, so a
+        // stray NaN (e.g. an empty parse) must never reach it. The input is readOnly
+        // below so keystrokes can't blank it, and this finite-guard is the backstop
+        // for any transient/invalid detail the machine might emit.
+        onValueChange={(details) => {
+          if (Number.isFinite(details.valueAsNumber)) {
+            setQuantity(cardKey, details.valueAsNumber)
+          }
+        }}
+      >
+        {/* The parts read state from context, not DOM nesting, so they sit as
+            direct children of Root (no NumberInput.Control wrapper) — preserving the
+            old single `.collection-stepper` flex row of [−][qty][+] exactly. */}
+        <NumberInput.DecrementTrigger
           className="collection-step-btn"
-          // min 1: at quantity 1, the minus is disabled (remove handles deletion).
-          disabled={qty <= 1}
           aria-label={`Decrease quantity of ${tile.name}`}
-          onClick={() => setQuantity(cardKey, qty - 1)}
         >
           −
-        </button>
-        <span className="collection-qty" aria-live="polite">
-          {qty}
-        </span>
-        <button
-          type="button"
+        </NumberInput.DecrementTrigger>
+        {/* readOnly to preserve today's display-only number (was a <span>): the
+            +/- triggers drive the value, typing is disabled. The litewind resets
+            strip the native <input> chrome so it renders as the old static digit. */}
+        <NumberInput.Input
+          className="collection-qty border-0 bg-transparent p-0 appearance-none outline-none"
+          readOnly
+          aria-live="polite"
+        />
+        <NumberInput.IncrementTrigger
           className="collection-step-btn"
           aria-label={`Increase quantity of ${tile.name}`}
-          onClick={() => setQuantity(cardKey, qty + 1)}
         >
           +
-        </button>
-      </div>
+        </NumberInput.IncrementTrigger>
+      </NumberInput.Root>
       <button
         type="button"
         className="collection-remove-btn"
