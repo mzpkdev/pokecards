@@ -239,6 +239,36 @@ export default function SearchFilterBar({
     setText('')
   }, [update])
 
+  // --- Mobile facet collapse -------------------------------------------------
+  // On phones the facet pills wrap into several rows and eat the vertical space
+  // above the grid, so we collapse them behind a "Filters" toggle. Desktop ALWAYS
+  // shows the pills inline (the toggle is display:none and .filter-facets is
+  // display:contents there — see index.css), so this is purely a mobile affordance.
+  // Local UI state only; every filter VALUE still lives in the URL.
+  const [facetsOpen, setFacetsOpen] = useState(false)
+
+  // Whether ANY facet has options to show — guards against rendering a pointless
+  // toggle for a category with zero facets (doesn't happen today, but cheap).
+  const hasFacets =
+    options.types.length > 0 ||
+    options.subtypes.length > 0 ||
+    options.cardClasses.length > 0 ||
+    options.generations.length > 0 ||
+    options.sets.length > 0 ||
+    options.series.length > 0 ||
+    options.roles.length > 0
+
+  // Active facets, EXCLUDING the text query (search stays visible while the
+  // facets collapse, so the toggle badge should reflect only the hidden facets).
+  const activeFacetCount =
+    (filters.types.length ? 1 : 0) +
+    (filters.subtypes.length ? 1 : 0) +
+    (filters.cardClasses.length ? 1 : 0) +
+    (filters.generations.length ? 1 : 0) +
+    (filters.sets.length ? 1 : 0) +
+    (filters.series.length ? 1 : 0) +
+    (filters.roles.length ? 1 : 0)
+
   return (
     <div className="filter-bar">
       <div className="filter-bar-row">
@@ -259,71 +289,106 @@ export default function SearchFilterBar({
           />
         </div>
 
-        {/* Facet multiselects — each hides itself when it has no options. */}
-        <MultiSelect
-          label="Type"
-          paramKey={PARAM.type}
-          options={options.types}
-          selected={filters.types}
-          onToggle={(v) => toggle(PARAM.type, filters.types, v)}
-          onClear={() => setList(PARAM.type, [])}
-        />
-        <MultiSelect
-          label="Subtype"
-          paramKey={PARAM.subtype}
-          options={options.subtypes}
-          selected={filters.subtypes}
-          onToggle={(v) => toggle(PARAM.subtype, filters.subtypes, v)}
-          onClear={() => setList(PARAM.subtype, [])}
-        />
-        {/* Card Class — Specials tab only. options.cardClasses is empty for
-            non-special categories, so MultiSelect renders nothing there. */}
-        <MultiSelect
-          label="Card Class"
-          paramKey={PARAM.cardClass}
-          options={options.cardClasses}
-          selected={filters.cardClasses}
-          onToggle={(v) => toggle(PARAM.cardClass, filters.cardClasses, v)}
-          onClear={() => setList(PARAM.cardClass, [])}
-        />
-        {/* Generation — species tabs only (Pokémon + Specials). options.generations
-            is empty on Poketools, so MultiSelect renders nothing there. */}
-        <MultiSelect
-          label="Generation"
-          paramKey={PARAM.gen}
-          options={options.generations}
-          selected={filters.generations}
-          onToggle={(v) => toggle(PARAM.gen, filters.generations, v)}
-          onClear={() => setList(PARAM.gen, [])}
-        />
-        <MultiSelect
-          label="Set"
-          paramKey={PARAM.set}
-          options={options.sets}
-          selected={filters.sets}
-          onToggle={(v) => toggle(PARAM.set, filters.sets, v)}
-          onClear={() => setList(PARAM.set, [])}
-        />
-        <MultiSelect
-          label="Series"
-          paramKey={PARAM.series}
-          options={options.series}
-          selected={filters.series}
-          onToggle={(v) => toggle(PARAM.series, filters.series, v)}
-          onClear={() => setList(PARAM.series, [])}
-        />
-        <MultiSelect
-          label="Role"
-          paramKey={PARAM.role}
-          options={options.roles}
-          selected={filters.roles}
-          onToggle={(v) => toggle(PARAM.role, filters.roles, v)}
-          onClear={() => setList(PARAM.role, [])}
-          // Roles are stored lowercase in the data; show them Capitalized while
-          // the toggled value / ?role= param stays the raw value (so filtering
-          // and the #/role/:role drill-down still match the data).
-          formatLabel={formatRoleLabel}
-        />
+        {/* Mobile-only "Filters" toggle: collapses the facet pills (which wrap
+            into several rows on a phone) behind one tap. Hidden on desktop via
+            CSS, where the facets always show inline. Reuses the .filter-trigger
+            pill styling; goes sky-blue (is-active) with a count when ≥1 facet is
+            selected, so applied filters stay visible even while collapsed. */}
+        {hasFacets && (
+          <button
+            type="button"
+            className={[
+              'filter-trigger',
+              'filter-toggle',
+              activeFacetCount > 0 ? 'is-active' : '',
+            ].join(' ')}
+            aria-expanded={facetsOpen}
+            aria-controls="filter-facets"
+            onClick={() => setFacetsOpen((o) => !o)}
+          >
+            <span className="filter-trigger-label">Filters</span>
+            {activeFacetCount > 0 && (
+              <span className="filter-trigger-count">{activeFacetCount}</span>
+            )}
+            <span className="filter-trigger-caret" aria-hidden="true">
+              {facetsOpen ? '▴' : '▾'}
+            </span>
+          </button>
+        )}
+
+        {/* Facet multiselects — each hides itself when it has no options. On
+            desktop this wrapper is display:contents (the pills flow inline in
+            .filter-bar-row exactly as before); on mobile it becomes a full-width
+            row that the Filters toggle shows/hides via .is-open. */}
+        <div
+          id="filter-facets"
+          className={['filter-facets', facetsOpen ? 'is-open' : ''].join(' ')}
+        >
+          <MultiSelect
+            label="Type"
+            paramKey={PARAM.type}
+            options={options.types}
+            selected={filters.types}
+            onToggle={(v) => toggle(PARAM.type, filters.types, v)}
+            onClear={() => setList(PARAM.type, [])}
+          />
+          <MultiSelect
+            label="Subtype"
+            paramKey={PARAM.subtype}
+            options={options.subtypes}
+            selected={filters.subtypes}
+            onToggle={(v) => toggle(PARAM.subtype, filters.subtypes, v)}
+            onClear={() => setList(PARAM.subtype, [])}
+          />
+          {/* Card Class — Specials tab only. options.cardClasses is empty for
+              non-special categories, so MultiSelect renders nothing there. */}
+          <MultiSelect
+            label="Card Class"
+            paramKey={PARAM.cardClass}
+            options={options.cardClasses}
+            selected={filters.cardClasses}
+            onToggle={(v) => toggle(PARAM.cardClass, filters.cardClasses, v)}
+            onClear={() => setList(PARAM.cardClass, [])}
+          />
+          {/* Generation — species tabs only (Pokémon + Specials). options.generations
+              is empty on Poketools, so MultiSelect renders nothing there. */}
+          <MultiSelect
+            label="Generation"
+            paramKey={PARAM.gen}
+            options={options.generations}
+            selected={filters.generations}
+            onToggle={(v) => toggle(PARAM.gen, filters.generations, v)}
+            onClear={() => setList(PARAM.gen, [])}
+          />
+          <MultiSelect
+            label="Set"
+            paramKey={PARAM.set}
+            options={options.sets}
+            selected={filters.sets}
+            onToggle={(v) => toggle(PARAM.set, filters.sets, v)}
+            onClear={() => setList(PARAM.set, [])}
+          />
+          <MultiSelect
+            label="Series"
+            paramKey={PARAM.series}
+            options={options.series}
+            selected={filters.series}
+            onToggle={(v) => toggle(PARAM.series, filters.series, v)}
+            onClear={() => setList(PARAM.series, [])}
+          />
+          <MultiSelect
+            label="Role"
+            paramKey={PARAM.role}
+            options={options.roles}
+            selected={filters.roles}
+            onToggle={(v) => toggle(PARAM.role, filters.roles, v)}
+            onClear={() => setList(PARAM.role, [])}
+            // Roles are stored lowercase in the data; show them Capitalized while
+            // the toggled value / ?role= param stays the raw value (so filtering
+            // and the #/role/:role drill-down still match the data).
+            formatLabel={formatRoleLabel}
+          />
+        </div>
       </div>
 
       {/* Status row: result count + active-filter count + clear-all. */}

@@ -607,6 +607,41 @@ body {
   opacity: 0.8;
 }
 
+/* --- Collapsible facets (mobile only) -------------------------------------- */
+/* The facet pills wrap into several rows on a phone and eat the vertical space
+   above the grid. On mobile we collapse them behind the "Filters" toggle; on
+   desktop the toggle is hidden and this wrapper is display:contents, so the pills
+   flow inline in .filter-bar-row EXACTLY as they did before this was added. */
+.filter-facets {
+  display: contents;
+}
+
+/* Hidden on desktop — facets are always shown inline there. Overrides the
+   inline-flex inherited from .filter-trigger (same specificity, later in source). */
+.filter-toggle {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .filter-toggle {
+    display: inline-flex;
+  }
+
+  /* The pills become their own full-width row below the search + toggle, shown
+     only when the toggle is open (.is-open wins on specificity). */
+  .filter-facets {
+    display: none;
+    flex-basis: 100%;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .filter-facets.is-open {
+    display: flex;
+  }
+}
+
 /* Popover panel — anchored under its trigger. A scrollable checkbox list. */
 .filter-menu {
   position: absolute;
