@@ -1,9 +1,10 @@
-import type { CSSProperties } from 'react'
+import { useCallback, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import type { PokemonCard as PokemonCardData } from '../types'
 import { typeColor } from '../energyIcons'
 import { useHoloPointer } from '../useHoloPointer'
 import { useProgressiveImage } from '../useProgressiveImage'
+import { useVisibleDwell } from '../useVisibleDwell'
 // Local, content-hashed asset (Vite rewrites the URL under the '/pokecards/'
 // base) so it stays correct on GitHub Pages and never hotlinks.
 import pikachuCard from '../assets/pikachu-card.png'
@@ -25,6 +26,12 @@ import pikachuCard from '../assets/pikachu-card.png'
 type PokemonCardProps = {
   card: PokemonCardData
 }
+
+// How long a tile must stay in view before it auto-upgrades to full-res (ms).
+// Backs the dwell trigger that covers touch / passive browsing (where the
+// hover/focus upgrade never fires); long enough that flicking past a tile during
+// a scroll doesn't kick off a load. Tune to taste.
+const VISIBLE_DWELL_MS = 1500
 
 export default function PokemonCard({ card }: PokemonCardProps) {
   const isSpecial = card.category === 'special'
@@ -49,6 +56,21 @@ export default function PokemonCard({ card }: PokemonCardProps) {
   // object) during render.
   const { ref: holoRef, onPointerEnter, onPointerMove, onPointerLeave } =
     useHoloPointer()
+
+  // Second upgrade trigger: when the tile has dwelled in view for a beat (covers
+  // touch / passive browsing, where hover/focus never fires). useVisibleDwell
+  // returns a callback ref, which we MERGE with the holo ref into one ref on the
+  // tile below — both the holo engine and the dwell observer need the node, and
+  // an element takes a single `ref`. `upgrade` is idempotent, so hover + dwell
+  // firing for the same card can't double-load.
+  const dwellRef = useVisibleDwell(upgrade, VISIBLE_DWELL_MS)
+  const setTileRef = useCallback(
+    (el: HTMLElement | null) => {
+      holoRef(el)
+      dwellRef(el)
+    },
+    [holoRef, dwellRef],
+  )
 
   // Per-card tint hook: resolve the PRIMARY energy type to its color and hand it
   // to the tile as a CSS custom property. index.css drives a SUBTLE background
@@ -78,7 +100,7 @@ export default function PokemonCard({ card }: PokemonCardProps) {
     // react-hooks/immutability rule happy — the hook owns the node).
     <Link
       to={`/card/${card.id}`}
-      ref={holoRef}
+      ref={setTileRef}
       data-category={card.category}
       style={tintStyle}
       aria-label={`View ${card.name} details`}
