@@ -1092,7 +1092,9 @@ body {
    in the hi-res can't flash blank — it just fades in on top. Sits above the base
    img (DOM order) and below the shine/glare (their positive z-index). */
 .pc-thumb-img--hires {
-  animation: pc-hires-in 180ms ease-out both;
+  /* Duration is the fade-in length — long enough to read as a gentle
+     "comes into focus" (soft low-res → sharp hi-res) rather than a pop. */
+  animation: pc-hires-in 400ms ease-out both;
 }
 @keyframes pc-hires-in {
   from {
