@@ -301,6 +301,12 @@ function toCard(record: RawRecord, category: CardCategory): PokemonCard {
     // hero + lightbox keep printing.image (the full-res scan). Falls back to the
     // local Pikachu scan only if a record somehow has no image.
     imageUrl: printing?.image ? thumbnailUrl(printing.image) : pikachuCard,
+    // Full-res scan for the tile's progressive hover/focus upgrade (see
+    // useProgressiveImage): the tile shows imageUrl (small) and swaps to this on
+    // intent. undefined when a record has no printing (tile stays on the Pikachu
+    // fallback); equal to imageUrl when thumbnailUrl was a no-op, in which case
+    // the upgrade correctly skips.
+    imageHiresUrl: printing?.image,
     category,
     // Energy types drive the tile's per-type background tint (primary type).
     // Pokémon/specials carry them; Trainer/Tool records have none (→ neutral).

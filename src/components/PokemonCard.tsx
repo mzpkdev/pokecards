@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import type { PokemonCard as PokemonCardData } from '../types'
 import { typeColor } from '../energyIcons'
 import { useHoloPointer } from '../useHoloPointer'
+import { useProgressiveImage } from '../useProgressiveImage'
 // Local, content-hashed asset (Vite rewrites the URL under the '/pokecards/'
 // base) so it stays correct on GitHub Pages and never hotlinks.
 import pikachuCard from '../assets/pikachu-card.png'
@@ -31,9 +32,16 @@ export default function PokemonCard({ card }: PokemonCardProps) {
   // mapped onto card.imageUrl in data.ts. The Pikachu asset is only a defensive
   // fallback if a record somehow lacks an image (data.ts already applies it, so
   // this `||` is belt-and-suspenders). Broken remote images are handled below.
-  const src = card.imageUrl || pikachuCard
+  const lowSrc = card.imageUrl || pikachuCard
   const isFallback = !card.imageUrl
   const alt = isFallback ? `${card.name} (placeholder image)` : card.name
+  // Progressive image: the tile renders the small CDN variant (lowSrc) as the
+  // base layer; on hover / focus we preload the full-res scan and, once it has
+  // decoded (showHires), stack it as a SECOND <img> over the base (see
+  // useProgressiveImage + .pc-thumb-img--hires). The base never unmounts, so the
+  // hi-res fades in on top instead of the base's src swapping and flashing blank.
+  // `upgrade` is wired to onPointerEnter + onFocus below.
+  const { showHires, upgrade } = useProgressiveImage(lowSrc, card.imageHiresUrl)
 
   // Shared holo engine: the callback ref to attach to the holo element plus the
   // pointer handlers. Same mechanism the lightbox uses. Destructured at the call
@@ -74,9 +82,15 @@ export default function PokemonCard({ card }: PokemonCardProps) {
       data-category={card.category}
       style={tintStyle}
       aria-label={`View ${card.name} details`}
-      onPointerEnter={onPointerEnter}
+      onPointerEnter={(e) => {
+        // Holo tracking + kick off the hi-res upgrade for the hovered card.
+        onPointerEnter(e)
+        upgrade()
+      }}
       onPointerMove={onPointerMove}
       onPointerLeave={onPointerLeave}
+      // Keyboard users get the upgrade too: focusing the tile (tab) triggers it.
+      onFocus={upgrade}
       onKeyDown={(e) => {
         // Anchors fire on Enter for free; add Space to match button semantics
         // (and prevent the default page-scroll that Space would otherwise cause).
@@ -98,7 +112,7 @@ export default function PokemonCard({ card }: PokemonCardProps) {
       <div className="pc-thumb">
         <div className="pc-rotator">
           <img
-            src={src}
+            src={lowSrc}
             alt={alt}
             // Remote pokemontcg.io art: async decode + lazy load so 3914 remote
             // images don't block the main thread on scroll (sync decode made
@@ -118,13 +132,29 @@ export default function PokemonCard({ card }: PokemonCardProps) {
               img.dataset.fallback = '1'
               img.src = pikachuCard
             }}
-            className="pc-thumb-img"
+            className="pc-thumb-img pc-thumb-img--low"
           />
           {/* Holographic overlays ported from simeydotme/pokemon-cards-css.
               Both sit above the art, are clipped to the card's rounded rect by
               .pc-rotator's own overflow:hidden, and are invisible (--card-opacity 0) at
               rest — the resting card stays the clean image. pointer-events:none so
               they never intercept the pointer tracking. */}
+          {/* Hi-res overlay — mounts only after the full-res preload has
+              decoded (showHires), grid-stacked into the same rotator cell ON TOP
+              of the low-res base img. Because the base never unmounts, the hi-res
+              fades in over it (CSS .pc-thumb-img--hires) instead of flashing
+              blank. It sits above the base (DOM order) but below the shine/glare
+              (their positive z-index), so the foil still renders over it. */}
+          {showHires && card.imageHiresUrl && (
+            <img
+              src={card.imageHiresUrl}
+              alt=""
+              aria-hidden="true"
+              decoding="async"
+              draggable={false}
+              className="pc-thumb-img pc-thumb-img--hires"
+            />
+          )}
           <div className="pc-shine" aria-hidden="true" />
           <div className="pc-glare" aria-hidden="true" />
         </div>

@@ -1085,6 +1085,44 @@ body {
   user-select: none;
 }
 
+/* Progressive hi-res overlay: the grid tile renders the small CDN variant as the
+   base <img>, and once the full-res scan has preloaded on hover/focus the
+   component mounts a SECOND <img> in the same rotator cell (grid-stacked over the
+   base via `.pc-rotator > *`). Because the low-res base never unmounts, bringing
+   in the hi-res can't flash blank — it just fades in on top. Sits above the base
+   img (DOM order) and below the shine/glare (their positive z-index). */
+.pc-thumb-img--hires {
+  animation: pc-hires-in 180ms ease-out both;
+}
+@keyframes pc-hires-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* Reduced-motion: skip the crossfade (still blink-free — the base sits under it). */
+@media (prefers-reduced-motion: reduce) {
+  .pc-thumb-img--hires {
+    animation: none;
+  }
+}
+
+/* Smooth the low-res base on HI-DPI only. The small CDN variant (~245px) is
+   upscaled ~2x into the tile on retina/hi-DPI, where it can read pixelated /
+   JPEG-blocky at rest. A sub-pixel blur masks those upscale artifacts — CSS
+   can't reconstruct real detail, so this trades a hair of sharpness for a
+   cleaner look. On 1x displays the variant is ~1:1 and already crisp, so we
+   leave it untouched. This only shows at rest: hover/focus stacks the crisp
+   full-res (.pc-thumb-img--hires) on top, fully covering it. Tune the radius to
+   taste — higher = smoother but softer. */
+@media (min-resolution: 2dppx), (-webkit-min-device-pixel-ratio: 2) {
+  .pc-thumb-img--low {
+    filter: blur(0.6px);
+  }
+}
+
 /* ============================================================================
    HOLOGRAPHIC OVERLAYS — adapted from simeydotme/pokemon-cards-css
    (https://github.com/simeydotme/pokemon-cards-css), licensed GPL-3.0.

@@ -9,6 +9,10 @@ export type PokemonCard = {
   id: string
   name: string
   imageUrl: string
+  // Full-resolution scan for the grid tile's progressive hover/focus upgrade
+  // (see useProgressiveImage). The tile renders `imageUrl` (a small CDN variant)
+  // and swaps to this on intent. Optional: absent when a record has no printing.
+  imageHiresUrl?: string
   category: CardCategory
   variant?: SpecialVariant
   setName?: string
