@@ -6,6 +6,7 @@ import Tabs from './Tabs'
 import { loadAllFilterableCards } from '../data'
 import type { FilterableCard } from '../data'
 import type { PokemonCard } from '../types'
+import { buildExportText } from '../collectionExport'
 import {
   collectionKeyForTile,
   useCollection,
@@ -38,24 +39,6 @@ type ExportFeedback = 'idle' | 'copied' | 'failed'
 
 // How long the "Copied!" / fallback message stays before reverting to idle.
 const FEEDBACK_MS = 2000
-
-// Builds the export text: one line per card as "<name> x<quantity>", sorted by
-// name (case-insensitive, locale-aware). Names come from the resolved tiles so a
-// stale key with no matching card is skipped (it contributes no line).
-function buildExportText(
-  entries: [string, number][],
-  nameByKey: Map<string, string>,
-): string {
-  return entries
-    .map(([key, qty]) => {
-      const name = nameByKey.get(key)
-      return name ? { name, qty } : null
-    })
-    .filter((row): row is { name: string; qty: number } => row !== null)
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((row) => `${row.name} x${row.qty}`)
-    .join('\n')
-}
 
 // Best-effort clipboard write. Prefers the async Clipboard API; falls back to a
 // hidden-textarea + execCommand('copy') for older/insecure contexts where

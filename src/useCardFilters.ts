@@ -64,7 +64,7 @@ export type CardFilters = {
 
 // Splits a comma-joined multi-value param into a clean string[] (trimmed,
 // empties dropped). Order is preserved as authored in the URL.
-function parseList(raw: string | null): string[] {
+export function parseList(raw: string | null): string[] {
   if (!raw) return []
   return raw
     .split(',')
@@ -74,7 +74,7 @@ function parseList(raw: string | null): string[] {
 
 // Case-insensitive OR membership: does any of the card's values match any of
 // the selected values? An empty `selected` is "no constraint" → always true.
-function matchesFacet(cardValues: string[], selectedLower: string[]): boolean {
+export function matchesFacet(cardValues: string[], selectedLower: string[]): boolean {
   if (selectedLower.length === 0) return true
   for (const v of cardValues) {
     if (selectedLower.includes(v.toLowerCase())) return true
