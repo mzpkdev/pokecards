@@ -255,6 +255,32 @@ export function sortPrintings(printings: Printing[]): Printing[] {
   return [...normals, ...specials]
 }
 
+// ============================================================================
+// TILE THUMBNAILS — grid tiles render the card at ~250px, but a printing's
+// `image` is the FULL-RESOLUTION scan (~0.9MB each). Across a ~5,900-card grid
+// that's a huge amount of wasted image bandwidth for pixels the tile can't even
+// show. Both CDNs publish a smaller variant at a deterministic sibling URL, so
+// we rewrite the tile's image to that variant (measured ~5× smaller:
+// pokemontcg.io 899KB→176KB, scrydex 624KB→122KB). ONLY the tile is rewritten —
+// the detail-page hero and the lightbox keep `printing.image` (the full-res
+// scan) so the zoomed view stays crisp.
+// ----------------------------------------------------------------------------
+// The catalog's image URLs come from exactly two sources, both with clean URLs
+// (no query strings), so plain endsWith/slice is sufficient — no regex or
+// case-handling needed:
+//   • pokemontcg.io — always ends `_hires.png`; the smaller variant strips the
+//     `_hires` token (…/sv1/1_hires.png → …/sv1/1.png).
+//   • scrydex (images.scrydex.com) — always ends `/large`; the smaller variant
+//     is `/medium` (…/me2pt5-129/large → …/me2pt5-129/medium).
+// Anything else (e.g. the local Pikachu fallback) is returned verbatim.
+// ============================================================================
+export function thumbnailUrl(image: string): string {
+  if (image.endsWith('_hires.png')) return image.slice(0, -'_hires.png'.length) + '.png'
+  if (image.includes('images.scrydex.com') && image.endsWith('/large'))
+    return image.slice(0, -'/large'.length) + '/medium'
+  return image
+}
+
 /**
  * Maps a raw record → the lightweight grid tile shape. ONE tile per record
  * (using its first NORMAL printing), not one per printing. printings are sorted
@@ -270,9 +296,11 @@ function toCard(record: RawRecord, category: CardCategory): PokemonCard {
     // fallback below so a malformed record degrades instead of throwing).
     id: printing?.id ?? '',
     name: record.name,
-    // Real cards show their real printing image; fall back to the local Pikachu
-    // scan only if a record somehow has no image.
-    imageUrl: printing?.image || pikachuCard,
+    // The TILE uses the smaller CDN variant (via thumbnailUrl) — tiles render at
+    // ~250px, so shipping the full-res scan here wastes bandwidth; the detail
+    // hero + lightbox keep printing.image (the full-res scan). Falls back to the
+    // local Pikachu scan only if a record somehow has no image.
+    imageUrl: printing?.image ? thumbnailUrl(printing.image) : pikachuCard,
     category,
     // Energy types drive the tile's per-type background tint (primary type).
     // Pokémon/specials carry them; Trainer/Tool records have none (→ neutral).

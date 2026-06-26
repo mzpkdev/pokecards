@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Printing } from './types'
-import { isSpecialPrinting, sortPrintings, seriesOf, genOf, UNKNOWN_GEN } from './data'
+import { isSpecialPrinting, sortPrintings, seriesOf, genOf, UNKNOWN_GEN, thumbnailUrl } from './data'
 
 // Small helper to build a Printing with only the fields under test mattering.
 // `set` and `image` never affect classification, so they default to dummies.
@@ -130,5 +130,36 @@ describe('genOf', () => {
     expect(genOf(0)).toBe(UNKNOWN_GEN)
     expect(genOf(NaN)).toBe(UNKNOWN_GEN)
     expect(genOf(9999)).toBe(UNKNOWN_GEN)
+  })
+})
+
+describe('thumbnailUrl', () => {
+  it('rewrites a pokemontcg.io _hires.png URL to its smaller .png variant', () => {
+    expect(thumbnailUrl('https://images.pokemontcg.io/sv1/1_hires.png')).toBe(
+      'https://images.pokemontcg.io/sv1/1.png',
+    )
+  })
+
+  it('rewrites a scrydex /large URL to its /medium variant', () => {
+    expect(
+      thumbnailUrl('https://images.scrydex.com/pokemon/me2pt5-129/large'),
+    ).toBe('https://images.scrydex.com/pokemon/me2pt5-129/medium')
+  })
+
+  it('returns an empty string unchanged', () => {
+    expect(thumbnailUrl('')).toBe('')
+  })
+
+  it('returns a non-matching local asset path unchanged', () => {
+    expect(thumbnailUrl('/pokecards/assets/pikachu.png')).toBe(
+      '/pokecards/assets/pikachu.png',
+    )
+  })
+
+  it('leaves a URL that merely contains "large" mid-path unchanged (end-anchored)', () => {
+    // "large" appears mid-path but the URL does not END in /large, so the
+    // scrydex rewrite must not fire — it's returned verbatim.
+    const url = 'https://images.scrydex.com/pokemon/large-set-1/medium'
+    expect(thumbnailUrl(url)).toBe(url)
   })
 })
