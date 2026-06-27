@@ -1,5 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
-import { NumberInput } from '@ark-ui/react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import {
+  Dialog,
+  NumberInput,
+  Portal,
+  Select,
+  createListCollection,
+} from '@ark-ui/react'
 import type { LoadState } from './CardGrid'
 import FilterableGrid from './FilterableGrid'
 import Tabs from './Tabs'
@@ -147,9 +153,243 @@ function CollectionControls({ tile }: { tile: PokemonCard }) {
   )
 }
 
+// Which management dialog is open (null = none). Create/rename share a name-entry
+// form; delete is a confirm. The id/name are captured when the dialog opens so an
+// active-collection switch underneath can't retarget an in-flight rename/delete.
+type DialogState =
+  | { mode: 'create' }
+  | { mode: 'rename'; id: string }
+  | { mode: 'delete'; id: string; name: string }
+  | null
+
+// The collection switcher + CRUD controls shown in the Collection header band.
+// An Ark Select switches the active collection (everything else in the app reads
+// the active collection through useCollection); the +/✎/🗑 buttons create, rename,
+// and delete via a small Ark Dialog. Delete is disabled while only one collection
+// exists (the store would just reseed an empty default — nothing to gain).
+function CollectionSwitcher() {
+  const { collections } = useCollection()
+  const { list, activeId, activeName, create, rename, remove, setActive } =
+    collections
+
+  const [dialog, setDialog] = useState<DialogState>(null)
+  const [draft, setDraft] = useState('')
+
+  // Ark Select wants a ListCollection. We carry each collection's count on the
+  // item so the dropdown can show it without a second lookup. Rebuilt when the
+  // list changes (create/rename/delete/quantity edits).
+  const selectCollection = useMemo(
+    () =>
+      createListCollection({
+        items: list.map((c) => ({
+          label: c.name,
+          value: c.id,
+          count: c.totalCount,
+        })),
+      }),
+    [list],
+  )
+
+  const active = list.find((c) => c.isActive)
+
+  const openCreate = () => {
+    setDraft('')
+    setDialog({ mode: 'create' })
+  }
+  const openRename = () => {
+    setDraft(activeName)
+    setDialog({ mode: 'rename', id: activeId })
+  }
+  const openDelete = () => {
+    if (active) setDialog({ mode: 'delete', id: active.id, name: active.name })
+  }
+  const close = () => setDialog(null)
+
+  // Create/rename submit. A blank name is rejected by the store too, but we guard
+  // here so a whitespace-only draft can't close the dialog as if it did something.
+  const submitName = (e: FormEvent) => {
+    e.preventDefault()
+    const name = draft.trim()
+    if (!name) return
+    if (dialog?.mode === 'create') create(name)
+    else if (dialog?.mode === 'rename') rename(dialog.id, name)
+    close()
+  }
+  const confirmDelete = () => {
+    if (dialog?.mode === 'delete') remove(dialog.id)
+    close()
+  }
+
+  return (
+    <div className="collection-switcher">
+      {/* Ark Select, controlled off the store: value is the active id, and every
+          change flows through setActive (which re-renders the whole app on the new
+          active collection). Single-select, so value is a 1-element array. */}
+      <Select.Root
+        collection={selectCollection}
+        value={[activeId]}
+        onValueChange={(details) => {
+          if (details.value[0]) setActive(details.value[0])
+        }}
+        positioning={{ sameWidth: true }}
+        className="collection-select"
+      >
+        <Select.Control>
+          <Select.Trigger
+            className="collection-select-trigger"
+            aria-label="Switch active collection"
+          >
+            <Select.ValueText
+              className="collection-select-value"
+              placeholder="Collection"
+            />
+            {active && active.totalCount > 0 && (
+              <span className="collection-select-count">{active.totalCount}</span>
+            )}
+            <Select.Indicator className="collection-select-caret" aria-hidden="true">
+              ▾
+            </Select.Indicator>
+          </Select.Trigger>
+        </Select.Control>
+        <Portal>
+          <Select.Positioner className="collection-select-positioner">
+            <Select.Content className="collection-select-content">
+              {selectCollection.items.map((item) => (
+                <Select.Item
+                  key={item.value}
+                  item={item}
+                  className="collection-select-item"
+                >
+                  <Select.ItemText>{item.label}</Select.ItemText>
+                  <span className="collection-select-item-count">{item.count}</span>
+                  <Select.ItemIndicator
+                    className="collection-select-check"
+                    aria-hidden="true"
+                  >
+                    ✓
+                  </Select.ItemIndicator>
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Positioner>
+        </Portal>
+      </Select.Root>
+
+      <button
+        type="button"
+        className="collection-manage-btn"
+        aria-label="New collection"
+        title="New collection"
+        onClick={openCreate}
+      >
+        <span aria-hidden="true">＋</span>
+      </button>
+      <button
+        type="button"
+        className="collection-manage-btn"
+        aria-label={`Rename ${activeName}`}
+        title="Rename collection"
+        onClick={openRename}
+      >
+        <span aria-hidden="true">✎</span>
+      </button>
+      <button
+        type="button"
+        className="collection-manage-btn collection-manage-btn--danger"
+        aria-label={`Delete ${activeName}`}
+        title="Delete collection"
+        onClick={openDelete}
+        disabled={list.length <= 1}
+      >
+        <span aria-hidden="true">🗑</span>
+      </button>
+
+      {/* One Ark Dialog drives all three flows. Open is controlled off `dialog`;
+          Ark supplies the focus trap, Escape/outside-click close, scroll-lock, and
+          the role/aria-modal contract (same convention as CardLightbox). */}
+      <Dialog.Root
+        open={dialog !== null}
+        onOpenChange={(details) => {
+          if (!details.open) close()
+        }}
+      >
+        <Portal>
+          <Dialog.Backdrop className="collection-dialog-backdrop" />
+          <Dialog.Positioner className="collection-dialog-positioner">
+            <Dialog.Content className="collection-dialog">
+              {dialog?.mode === 'delete' ? (
+                <>
+                  <Dialog.Title className="collection-dialog-title">
+                    Delete collection?
+                  </Dialog.Title>
+                  <Dialog.Description className="collection-dialog-desc">
+                    “{dialog.name}” and everything in it will be removed. This
+                    can’t be undone.
+                  </Dialog.Description>
+                  <div className="collection-dialog-actions">
+                    <button
+                      type="button"
+                      className="collection-dialog-btn"
+                      onClick={close}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="collection-dialog-btn collection-dialog-btn--danger"
+                      onClick={confirmDelete}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </>
+              ) : dialog ? (
+                <form onSubmit={submitName}>
+                  <Dialog.Title className="collection-dialog-title">
+                    {dialog.mode === 'create'
+                      ? 'New collection'
+                      : 'Rename collection'}
+                  </Dialog.Title>
+                  <input
+                    className="collection-dialog-input"
+                    type="text"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="Collection name"
+                    aria-label="Collection name"
+                    maxLength={60}
+                    autoFocus
+                  />
+                  <div className="collection-dialog-actions">
+                    <button
+                      type="button"
+                      className="collection-dialog-btn"
+                      onClick={close}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="collection-dialog-btn collection-dialog-btn--primary"
+                      disabled={!draft.trim()}
+                    >
+                      {dialog.mode === 'create' ? 'Create' : 'Save'}
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
+    </div>
+  )
+}
+
 export default function CollectionView() {
   const collection = useCollection()
   const { map, entries, totalCount, distinctCount } = collection
+  const activeName = collection.collections.activeName
 
   // Load the GLOBAL merged set once (module-memoized in data.ts, so this reuses
   // any per-category projections already warmed by the tabs/related views).
@@ -205,7 +445,9 @@ export default function CollectionView() {
   }, [feedback])
 
   const handleExport = async () => {
-    const text = buildExportText(entries, nameByKey)
+    // Prefix the deck list with the active collection's name so a pasted export
+    // is self-labeling (which of the user's collections it came from).
+    const text = `${activeName}\n\n${buildExportText(entries, nameByKey)}`
     const ok = await copyToClipboard(text)
     setFeedback(ok ? 'copied' : 'failed')
   }
@@ -217,9 +459,9 @@ export default function CollectionView() {
       <span className="grid-status-emoji" aria-hidden="true">
         ✦
       </span>
-      <span className="grid-status-title">Your collection is empty</span>
+      <span className="grid-status-title">“{activeName}” is empty</span>
       <span className="grid-status-text">
-        Open any card and tap “Add to collection” to start your deck list.
+        Open any card and tap “Add to collection” to start filling it.
       </span>
     </div>
   )
@@ -249,27 +491,33 @@ export default function CollectionView() {
             </p>
           )}
         </div>
-        {!isEmpty && (
-          <div className="collection-head-actions">
-            <button
-              type="button"
-              className="collection-export-btn"
-              onClick={handleExport}
-              data-feedback={feedback}
-            >
-              <span aria-hidden="true">⧉</span> {exportLabel}
-            </button>
-            {/* Visually-hidden live region so the copy result is announced even
-                though the button label also reflects it. */}
-            <span className="sr-only" role="status" aria-live="polite">
-              {feedback === 'copied'
-                ? 'Collection copied to clipboard'
-                : feedback === 'failed'
-                  ? 'Could not copy to clipboard'
-                  : ''}
-            </span>
-          </div>
-        )}
+        {/* Actions ALWAYS render so the switcher is reachable even when the
+            active collection is empty (you must be able to switch/create from an
+            empty one). Export is gated on having something to export. */}
+        <div className="collection-head-actions">
+          <CollectionSwitcher />
+          {!isEmpty && (
+            <>
+              <button
+                type="button"
+                className="collection-export-btn"
+                onClick={handleExport}
+                data-feedback={feedback}
+              >
+                <span aria-hidden="true">⧉</span> {exportLabel}
+              </button>
+              {/* Visually-hidden live region so the copy result is announced even
+                  though the button label also reflects it. */}
+              <span className="sr-only" role="status" aria-live="polite">
+                {feedback === 'copied'
+                  ? 'Collection copied to clipboard'
+                  : feedback === 'failed'
+                    ? 'Could not copy to clipboard'
+                    : ''}
+              </span>
+            </>
+          )}
+        </div>
       </div>
 
       {isEmpty ? (

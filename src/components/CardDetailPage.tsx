@@ -75,9 +75,14 @@ function EnergyPip({ type }: { type: string }) {
 // collection" button; once collected it becomes a quantity stepper (+/−, min 1)
 // plus a Remove control. Styled with the brand chips/buttons to match the skin.
 function CollectionActions({ card }: { card: CardDetail }) {
-  const { quantityOf, addKey, setQuantity, remove } = useCollection()
+  const { quantityOf, addKey, setQuantity, remove, collections } = useCollection()
   const cardKey = collectionKeyForDetail(card)
   const qty = quantityOf(cardKey)
+  // Adds always land in the ACTIVE collection. With more than one collection,
+  // name it so it's clear where the card goes / where the owned count is counted;
+  // a single-collection user sees the original (unqualified) copy.
+  const activeName = collections.activeName
+  const showWhere = collections.list.length > 1
 
   // A card with no printings has no stable key — it can't be collected. Real
   // records always have ≥1 printing; this only guards a malformed record so the
@@ -94,13 +99,18 @@ function CollectionActions({ card }: { card: CardDetail }) {
         >
           <span aria-hidden="true">＋</span> Add to collection
         </button>
+        {showWhere && (
+          <span className="detail-collect-active">to “{activeName}”</span>
+        )}
       </div>
     )
   }
 
   return (
     <div className="detail-collect detail-collect--owned">
-      <span className="detail-collect-owned-label">In your collection</span>
+      <span className="detail-collect-owned-label">
+        {showWhere ? `In “${activeName}”` : 'In your collection'}
+      </span>
       <div className="detail-collect-row">
         <div
           className="detail-collect-stepper"
