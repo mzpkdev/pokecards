@@ -2822,13 +2822,19 @@ body {
 }
 
 .collection-head-actions {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   /* Separate the switcher group from the Export CTA (and let them wrap onto two
      rows on a narrow viewport rather than colliding/overflowing). */
   flex-wrap: wrap;
   gap: 0.75rem;
-  flex-shrink: 0;
+  /* Keep the cluster pinned to the RIGHT. margin-left:auto right-aligns it on the
+     same row as the title on desktop AND when it wraps to its own line on mobile;
+     justify-content:flex-end keeps its contents right-aligned if they themselves
+     wrap. (No flex-shrink:0, so on a tight screen it shrinks and its children
+     wrap instead of overflowing.) */
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 /* Export button — a sky primary action that matches the detail "add" CTA. The
