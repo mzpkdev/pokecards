@@ -141,7 +141,7 @@ function CollectionControls({ tile }: { tile: PokemonCard }) {
         aria-label={`Remove ${tile.name} from your collection`}
         onClick={() => remove(cardKey)}
       >
-        Remove
+        <span aria-hidden="true">✕</span>
       </button>
     </div>
   )

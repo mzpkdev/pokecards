@@ -2900,22 +2900,31 @@ body {
   bottom: 0.4rem;
   z-index: 3;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
+  /* Corner layout: the stepper tucks into the bottom-LEFT, Remove into the
+     bottom-RIGHT, each carrying its own compact pill — no full-width bar, so most
+     of the card art stays visible (the old opaque bar was the intrusive part). */
   justify-content: space-between;
   gap: 0.4rem;
-  padding: 0.32rem;
-  border-radius: var(--r-pill);
-  background: rgba(255, 255, 255, 0.94);
-  border: 2px solid var(--border-ink);
-  box-shadow: var(--shadow-soft);
-  /* The art above stays interactive (holo); the controls themselves catch
-     pointer events (re-enabled here — the bar is opaque over the art). */
+  /* The container ignores pointer events; only the corner pills re-enable them.
+     Taps on the open middle pass through to the card link / holo beneath, so most
+     of the tile still navigates + tilts. */
+  pointer-events: none;
 }
 
 .collection-stepper {
+  /* Self-contained pill in the bottom-left corner (the container is transparent
+     + pointer-events:none, so the pill carries its own surface + re-enables
+     pointer events). Semi-transparent so a sliver of art shows through. */
+  pointer-events: auto;
   display: inline-flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.1rem;
+  padding: 0.16rem 0.22rem;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid var(--border-ink);
+  box-shadow: var(--shadow-soft);
 }
 
 /* +/- buttons: round chunky sticker buttons. */
@@ -2923,15 +2932,15 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.6rem;
-  height: 1.6rem;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: var(--r-pill);
   border: 2px solid var(--sky-deep);
   background: var(--sky);
   color: #ffffff;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 1.05rem;
+  font-size: 1rem;
   line-height: 1;
   cursor: pointer;
   outline: none;
@@ -2959,25 +2968,34 @@ body {
 }
 
 .collection-qty {
-  min-width: 1.5rem;
+  /* Explicit width is REQUIRED: this is an <input> (Ark NumberInput), which
+     otherwise falls back to its default ~170px size-based width. A fixed narrow
+     width keeps the corner stepper pill compact and fits 1–3 digit quantities. */
+  width: 1.9rem;
   text-align: center;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text);
 }
 
-/* Remove control on a tile — compact coral text button. */
+/* Remove control on a tile — a small round ✕ pill in the bottom-right corner. */
 .collection-remove-btn {
-  padding: 0.28rem 0.6rem;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
   border-radius: var(--r-pill);
-  border: 2px solid var(--coral-deep);
-  background: transparent;
+  border: 1.5px solid var(--coral-deep);
+  background: rgba(255, 255, 255, 0.9);
   color: var(--coral-deep);
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 0.74rem;
-  letter-spacing: 0.01em;
+  font-size: 0.9rem;
+  line-height: 1;
   cursor: pointer;
   outline: none;
   transition:
