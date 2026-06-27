@@ -2824,6 +2824,10 @@ body {
 .collection-head-actions {
   display: inline-flex;
   align-items: center;
+  /* Separate the switcher group from the Export CTA (and let them wrap onto two
+     rows on a narrow viewport rather than colliding/overflowing). */
+  flex-wrap: wrap;
+  gap: 0.75rem;
   flex-shrink: 0;
 }
 
