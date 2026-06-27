@@ -474,6 +474,9 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  /* Center the search + facet cluster (matches the centered tab bar). The search
+     no longer flex-grows (see .filter-search), so there's free space to center. */
+  justify-content: center;
   gap: 0.5rem;
 }
 
@@ -482,7 +485,11 @@ body {
   position: relative;
   display: flex;
   align-items: center;
-  flex: 1 1 16rem;
+  /* Don't grow to eat the row's free space (that would defeat the centering) —
+     fixed-ish 26rem basis, shrinking only when needed. On mobile it grows again
+     (see the max-width:720px override) so it stays wide next to the Filters
+     toggle. */
+  flex: 0 1 26rem;
   min-width: 12rem;
   max-width: 26rem;
 }
@@ -637,6 +644,13 @@ body {
     display: inline-flex;
   }
 
+  /* Restore grow on mobile so the search fills the row beside the Filters
+     toggle (the desktop "don't grow" rule is for the centered cluster). */
+  .filter-search {
+    flex: 1 1 12rem;
+    max-width: none;
+  }
+
   /* The pills become their own full-width row below the search + toggle, shown
      only when the toggle is open (.is-open wins on specificity). */
   .filter-facets {
@@ -765,6 +779,8 @@ body {
 .filter-bar-meta {
   display: flex;
   align-items: center;
+  /* Center the count / clear-all line under the centered filter cluster. */
+  justify-content: center;
   gap: 0.75rem;
   font-size: 0.82rem;
 }
