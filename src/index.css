@@ -3088,6 +3088,16 @@ body {
     transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* Uniform icon for the manage buttons — replaces the mismatched +/pencil/trash
+   glyphs (different metrics + the wastebasket emoji) that didn't optically
+   center. display:block + a fixed box let the flex container center it exactly;
+   currentColor inherits the button text color, including the danger-hover white. */
+.collection-manage-icon {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .collection-manage-btn:hover {
     background: var(--surface-2);
