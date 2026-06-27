@@ -361,6 +361,8 @@ body {
 .tabbar {
   background: transparent;
   align-items: center;
+  /* Center the tab pills horizontally (and each wrapped row on mobile). */
+  justify-content: center;
   /* WRAP on narrow viewports (root fix for the mobile horizontal overflow): the
      bar holds four pill tabs (Pokémon / Poketools / Specials / Your Collection)
      in a litewind `flex … gap-3` row with NO wrap, so at ~375px their combined
