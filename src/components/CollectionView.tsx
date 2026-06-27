@@ -493,30 +493,29 @@ export default function CollectionView() {
         </div>
         {/* Actions ALWAYS render so the switcher is reachable even when the
             active collection is empty (you must be able to switch/create from an
-            empty one). Export is gated on having something to export. */}
+            empty one). Export stays visible too — it just DISABLES when there's
+            nothing to export, so the header layout doesn't shift. */}
         <div className="collection-head-actions">
           <CollectionSwitcher />
-          {!isEmpty && (
-            <>
-              <button
-                type="button"
-                className="collection-export-btn"
-                onClick={handleExport}
-                data-feedback={feedback}
-              >
-                <span aria-hidden="true">⧉</span> {exportLabel}
-              </button>
-              {/* Visually-hidden live region so the copy result is announced even
-                  though the button label also reflects it. */}
-              <span className="sr-only" role="status" aria-live="polite">
-                {feedback === 'copied'
-                  ? 'Collection copied to clipboard'
-                  : feedback === 'failed'
-                    ? 'Could not copy to clipboard'
-                    : ''}
-              </span>
-            </>
-          )}
+          <button
+            type="button"
+            className="collection-export-btn"
+            onClick={handleExport}
+            data-feedback={feedback}
+            disabled={isEmpty}
+            title={isEmpty ? 'Nothing to export yet' : undefined}
+          >
+            <span aria-hidden="true">⧉</span> {exportLabel}
+          </button>
+          {/* Visually-hidden live region so the copy result is announced even
+              though the button label also reflects it. */}
+          <span className="sr-only" role="status" aria-live="polite">
+            {feedback === 'copied'
+              ? 'Collection copied to clipboard'
+              : feedback === 'failed'
+                ? 'Could not copy to clipboard'
+                : ''}
+          </span>
         </div>
       </div>
 

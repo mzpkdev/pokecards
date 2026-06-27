@@ -2857,7 +2857,7 @@ body {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .collection-export-btn:hover {
+  .collection-export-btn:hover:not(:disabled) {
     transform: scale(1.04);
     box-shadow: 0 12px 24px -10px var(--accent-glow);
   }
@@ -2866,6 +2866,14 @@ body {
 .collection-export-btn:focus-visible {
   outline: 3px solid var(--coral);
   outline-offset: 2px;
+}
+
+/* Disabled (empty active collection): muted + inert, no hover lift. */
+.collection-export-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 /* Copied! — flip to the mint success palette. */
