@@ -49,7 +49,7 @@ describe('useVisibleDwell', () => {
     const { result } = renderHook(() => useVisibleDwell(onDwell, 1500))
     result.current(document.createElement('a'))
     expect(instances).toHaveLength(1)
-    expect(instances[0].options).toEqual({ threshold: 0.5 })
+    expect(instances[0].options).toEqual({ threshold: 0.25 })
 
     instances[0].emit(true) // visible → start countdown
     expect(onDwell).not.toHaveBeenCalled()

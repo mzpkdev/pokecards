@@ -31,7 +31,7 @@ type PokemonCardProps = {
 // Backs the dwell trigger that covers touch / passive browsing (where the
 // hover/focus upgrade never fires); long enough that flicking past a tile during
 // a scroll doesn't kick off a load. Tune to taste.
-const VISIBLE_DWELL_MS = 1500
+const VISIBLE_DWELL_MS = 500
 
 export default function PokemonCard({ card }: PokemonCardProps) {
   const isSpecial = card.category === 'special'

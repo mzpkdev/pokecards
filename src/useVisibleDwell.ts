@@ -8,7 +8,7 @@ import type { RefCallback } from 'react'
 // Used to upgrade a grid tile to full-res when the user settles on it WITHOUT
 // hovering — covering touch / passive browsing, where the hover/focus upgrade
 // never fires. An IntersectionObserver starts a timer when the tile crosses into
-// view (≥50% visible); scrolling it back out before `ms` clears the timer, so
+// view (≥25% visible); scrolling it back out before `ms` clears the timer, so
 // only tiles you actually linger on upgrade — flicking past doesn't.
 //
 // `onDwell` is read through a ref, so a changing callback identity never tears
@@ -65,7 +65,7 @@ export function useVisibleDwell(
             clearTimer()
           }
         },
-        { threshold: 0.5 },
+        { threshold: 0.25 },
       )
       observer.observe(el)
       observerRef.current = observer
