@@ -403,9 +403,7 @@ body {
   .tab:hover {
     color: var(--sky-deep);
     border-color: var(--sky);
-    /* hover feedback without a position shift: a subtle scale + color/shadow
-       (round-2: translateY lift removed). */
-    transform: scale(1.04);
+    /* hover feedback without a position shift: color + border + shadow, no scale. */
     box-shadow: var(--shadow-sky);
   }
 }
@@ -428,7 +426,6 @@ body {
 @media (hover: hover) and (pointer: fine) {
   .tab.is-active:hover {
     color: #ffffff;
-    transform: scale(1.04);
   }
 }
 
@@ -573,8 +570,7 @@ body {
   .filter-trigger:hover {
     color: var(--sky-deep);
     border-color: var(--sky);
-    /* scale + color/shadow only — no translateY lift (round-2). */
-    transform: scale(1.04);
+    /* color + border + shadow only — no movement. */
     box-shadow: var(--shadow-sky);
   }
 }
@@ -1569,8 +1565,7 @@ body {
   .detail-back:hover {
     color: var(--sky-deep);
     border-color: var(--sky);
-    /* scale + color/shadow only — no translateY lift (round-2). */
-    transform: scale(1.03);
+    /* color + border + shadow only — no movement. */
     box-shadow: var(--shadow-sky);
   }
 }
@@ -1967,12 +1962,10 @@ body {
 @media (hover: hover) and (pointer: fine) {
   .origin-chip--set:hover {
     border-color: var(--sky);
-    transform: scale(1.05);
     box-shadow: 0 10px 20px -8px rgba(43, 143, 255, 0.45);
   }
   .origin-chip--series:hover {
     border-color: var(--sun-deep);
-    transform: scale(1.05);
     box-shadow: 0 10px 20px -8px rgba(245, 158, 11, 0.45);
   }
 }
@@ -1999,7 +1992,6 @@ body {
   .origin-chip--more:hover {
     border-color: var(--grape);
     background: rgba(139, 92, 246, 0.1);
-    transform: scale(1.05);
     box-shadow: 0 10px 20px -8px rgba(139, 92, 246, 0.45);
   }
 }
@@ -2091,7 +2083,6 @@ body {
 @media (hover: hover) and (pointer: fine) {
   .type-pill--link:hover {
     border-color: var(--sky);
-    transform: scale(1.05);
     box-shadow: 0 10px 20px -8px rgba(43, 143, 255, 0.45);
   }
 }
@@ -2154,7 +2145,6 @@ body {
   .chip-similar:hover {
     color: var(--sky-deep);
     border-color: var(--sky);
-    transform: scale(1.04);
   }
 }
 
@@ -2181,8 +2171,7 @@ body {
 
 @media (hover: hover) and (pointer: fine) {
   .chip-link:hover {
-    /* scale + shadow only — no translateY lift or rotate wobble (round-2). */
-    transform: scale(1.05);
+    /* shadow only — no movement. */
     box-shadow: 0 10px 20px -8px rgba(255, 84, 112, 0.5);
   }
 }
@@ -2213,7 +2202,6 @@ body {
     color: var(--text);
     border-color: var(--sun-deep);
     background: var(--sun);
-    transform: scale(1.05);
   }
 }
 
@@ -2578,7 +2566,7 @@ body {
 
 @media (hover: hover) and (pointer: fine) {
   .detail-notfound-link:hover {
-    transform: scale(1.04);
+    background: var(--sky-deep);
   }
 }
 
@@ -2891,7 +2879,6 @@ body {
 
 @media (hover: hover) and (pointer: fine) {
   .collection-export-btn:hover:not(:disabled) {
-    transform: scale(1.04);
     box-shadow: 0 12px 24px -10px var(--accent-glow);
   }
 }
@@ -2961,7 +2948,7 @@ body {
 
 @media (hover: hover) and (pointer: fine) {
   .collection-select-trigger:hover {
-    transform: scale(1.03);
+    background: var(--surface-2);
   }
 }
 
@@ -3082,7 +3069,6 @@ body {
 
 @media (hover: hover) and (pointer: fine) {
   .collection-manage-btn:hover {
-    transform: scale(1.06);
     background: var(--surface-2);
   }
   .collection-manage-btn--danger:hover {
@@ -3204,7 +3190,13 @@ body {
 
 @media (hover: hover) and (pointer: fine) {
   .collection-dialog-btn:hover {
-    transform: scale(1.04);
+    background: var(--surface-2);
+  }
+  .collection-dialog-btn--primary:hover {
+    background: var(--sky-deep);
+  }
+  .collection-dialog-btn--danger:hover {
+    background: var(--coral-deep);
   }
 }
 
@@ -3305,7 +3297,7 @@ body {
 
 @media (hover: hover) and (pointer: fine) {
   .collection-step-btn:hover:not(:disabled) {
-    transform: scale(1.1);
+    background: var(--sky-deep);
   }
 }
 
@@ -3362,7 +3354,6 @@ body {
   .collection-remove-btn:hover {
     background: var(--coral);
     color: #ffffff;
-    transform: scale(1.05);
   }
 }
 
@@ -3418,7 +3409,6 @@ body {
 
 @media (hover: hover) and (pointer: fine) {
   .detail-collect-add:hover {
-    transform: scale(1.04);
     box-shadow: 0 14px 28px -10px var(--gold-glow);
   }
 }
@@ -3491,7 +3481,7 @@ body {
 
 @media (hover: hover) and (pointer: fine) {
   .detail-collect-step:hover:not(:disabled) {
-    transform: scale(1.08);
+    background: var(--sky-deep);
   }
 }
 
@@ -3538,7 +3528,6 @@ body {
   .detail-collect-remove:hover {
     background: var(--coral);
     color: #ffffff;
-    transform: scale(1.04);
   }
 }
 
@@ -3657,11 +3646,10 @@ body {
   color: var(--text-dim);
 }
 
-/* Hover: scale-only (no lift) + sky color/shadow, matching .tab:hover. */
+/* Hover: sky color/border/shadow (no movement), matching .tab:hover. */
 @media (hover: hover) and (pointer: fine) {
   .set-banner:hover {
     border-color: var(--sky);
-    transform: scale(1.04);
     box-shadow: var(--shadow-sky);
   }
   .set-banner:hover .set-banner-name {
