@@ -658,6 +658,9 @@ body {
     flex-basis: 100%;
     width: 100%;
     flex-wrap: wrap;
+    /* Center the facet pills in the opened mobile panel (matches the centered
+       tab bar + filter row). */
+    justify-content: center;
     gap: 0.5rem;
   }
 
