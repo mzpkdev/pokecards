@@ -1987,6 +1987,28 @@ body {
   outline-offset: 2px;
 }
 
+/* "+N more sets" — an ACTION chip (a <button>, not a drill-down Link): grape-
+   tinted to read as distinct from Set/Series, jumps to the Printings switcher. */
+.origin-chip--more {
+  background: var(--surface);
+  border-color: var(--grape);
+  color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .origin-chip--more:hover {
+    border-color: var(--grape);
+    background: rgba(139, 92, 246, 0.1);
+    transform: scale(1.05);
+    box-shadow: 0 10px 20px -8px rgba(139, 92, 246, 0.45);
+  }
+}
+
+.origin-chip--more:focus-visible {
+  outline: 3px solid var(--grape);
+  outline-offset: 2px;
+}
+
 /* --- Sections -------------------------------------------------------------- */
 .detail-section {
   border-top: 3px dashed var(--border);

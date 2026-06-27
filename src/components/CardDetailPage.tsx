@@ -237,6 +237,8 @@ export default function CardDetailPage() {
   // closing (Escape / backdrop) restores focus to the hero via heroButtonRef.
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const heroButtonRef = useRef<HTMLButtonElement | null>(null)
+  // Scroll target for the head's "+N more sets" jump (see distinctSetCount).
+  const printingsRef = useRef<HTMLElement | null>(null)
   // Resolved "similar" targets. The raw card.similar tokens are NOT uniformly
   // linkable (pokemon-form = printing ids, poketool-form = card names — see
   // cardDetails.ts), so we resolve them to concrete { id, name } pairs via the
@@ -360,6 +362,22 @@ export default function CardDetailPage() {
   // only when the card has no printings, in which case the series chip + its
   // #/series/ drill-down are hidden (rendered behind a `heroSeries &&` guard).
   const heroSeries = hero ? seriesOf(hero.id) : ''
+  // How many DISTINCT sets this card's printings span. The Set chip near the
+  // title shows only the ACTIVE printing's set, so when a card is printed in
+  // more than one set we surface a "+N more sets" affordance that jumps to the
+  // full Printings switcher below (where every printing/set is listed). Counts
+  // distinct SETS, not printings — multiple printings within one set don't count.
+  const distinctSetCount = new Set(visiblePrintings.map((p) => p.set)).size
+  // Smooth-scroll to the Printings section (honoring reduced-motion).
+  const scrollToPrintings = () => {
+    const reduce =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    printingsRef.current?.scrollIntoView({
+      behavior: reduce ? 'auto' : 'smooth',
+      block: 'start',
+    })
+  }
 
   return (
     // Own scroll container: the detail page is NOT virtualized, so it scrolls
@@ -455,6 +473,23 @@ export default function CardDetailPage() {
                       <span className="origin-chip-label">Series</span>
                       <span className="origin-chip-value">{heroSeries}</span>
                     </Link>
+                  )}
+                  {/* "+N more sets" — only when the card spans >1 distinct set.
+                      The Set chip above shows just the active printing's set, so
+                      this makes the multi-set fact visible at a glance and jumps
+                      to the Printings switcher (where they're all listed). */}
+                  {distinctSetCount > 1 && (
+                    <button
+                      type="button"
+                      className="origin-chip origin-chip--more"
+                      onClick={scrollToPrintings}
+                      aria-label={`Printed in ${distinctSetCount} sets — view all printings`}
+                    >
+                      <span className="origin-chip-value">
+                        +{distinctSetCount - 1} more{' '}
+                        {distinctSetCount - 1 === 1 ? 'set' : 'sets'}
+                      </span>
+                    </button>
                   )}
                 </div>
               )}
@@ -655,7 +690,7 @@ export default function CardDetailPage() {
                 inline style that reuses the existing --gold* CSS vars, while
                 layout/shape/ring-width stay litewind utility classes. */}
             {visiblePrintings.length > 0 && (
-              <section className="detail-section">
+              <section className="detail-section" ref={printingsRef}>
                 <h3 className="detail-section-title">Printings</h3>
                 <ul className="printings-list">
                   {visiblePrintings.map((p) => {
