@@ -2791,9 +2791,14 @@ body {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 0.55rem;
   min-width: 0;
+  /* Reserve the count-pill's height even when it's absent (empty collection), so
+     this block doesn't change height as the pill appears/disappears. Without this
+     the actions, when wrapped onto their own row on mobile, shift a few px as you
+     switch between empty and non-empty collections. Matches the rendered pill. */
+  min-height: 1.85rem;
 }
 
 .collection-title {
