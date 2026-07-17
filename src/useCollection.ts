@@ -473,3 +473,30 @@ export function useCollection(): UseCollection {
     },
   }
 }
+
+// ----------------------------------------------------------------------------
+// SYNC SEAM — a thin read/write boundary for the cross-device sync layer
+// (src/sync), added WITHOUT changing any existing behavior or public API. The
+// synced payload is the WHOLE CollectionsState (all collections + activeId), so
+// these expose exactly that snapshot and let a remote snapshot be applied back.
+// ----------------------------------------------------------------------------
+
+// The same pub/sub useSyncExternalStore drives — lets the sync hook observe local
+// mutations (to know when to push) without re-plumbing the store.
+export { subscribe }
+
+// The current whole-store snapshot: the exact object the sync layer serializes
+// and pushes. Same reference as getSnapshot; named for the sync call site.
+export function getCollectionsState(): CollectionsState {
+  return state
+}
+
+// Apply an untrusted remote snapshot. Routed through the SAME coerceState
+// hardening every load uses (drops malformed collections, sanitizes quantities,
+// repairs activeId) and the SAME commit path a local mutation uses (persist +
+// notify). Anything that isn't a recognizable v2 state — null, garbage, wrong
+// shape — is silently ignored, leaving the store untouched.
+export function hydrateFromRemote(raw: unknown): void {
+  const s = coerceState(raw)
+  if (s) commit(s)
+}

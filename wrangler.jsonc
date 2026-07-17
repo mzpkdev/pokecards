@@ -2,8 +2,11 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "pokecards",
   "compatibility_date": "2026-07-17",
-  // Pure static SPA (React + HashRouter). No Pages Functions, no KV — Cloudflare
-  // just serves the built assets from dist/. HashRouter keeps all routing in the
-  // URL hash, so no _redirects / SPA fallback is needed.
-  "pages_build_output_dir": "dist"
+  // React + HashRouter SPA served from dist/, PLUS a cross-device sync backend: a
+  // Pages Function at /v1/blob/:id (see functions/) backed by the POKECARDS KV
+  // namespace stores the end-to-end-encrypted collection blob as opaque
+  // ciphertext. HashRouter keeps routing in the URL hash, so no _redirects / SPA
+  // fallback is needed.
+  "pages_build_output_dir": "dist",
+  "kv_namespaces": [{ "binding": "POKECARDS", "id": "e9b0683e6d1046d1ba7e2a794909d6aa" }]
 }
