@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pokecards",
+  "compatibility_date": "2026-07-17",
+  // Pure static SPA (React + HashRouter). No Pages Functions, no KV — Cloudflare
+  // just serves the built assets from dist/. HashRouter keeps all routing in the
+  // URL hash, so no _redirects / SPA fallback is needed.
+  "pages_build_output_dir": "dist"
+}
